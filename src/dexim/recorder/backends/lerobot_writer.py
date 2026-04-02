@@ -1,0 +1,166 @@
+"""LeRobot v3 storage backend.
+
+Appends episodes to a persistent ``LeRobotDataset`` (Parquet + video).
+All dataset operations are guarded by a ``threading.Lock`` to be safe
+against future API changes that might call the backend concurrently.
+
+Topic → LeRobot feature name mapping is the sole supported path
+(``topic_to_feature`` config dict).  The legacy alphabetic-concatenation
+path from the old ``data-recorder-node`` is intentionally not ported.
+"""
+
+from __future__ import annotations
+
+import threading
+from typing import Any
+
+from loguru import logger
+
+from dexim.recorder.backends.base import StorageBackend
+
+__all__ = ["LeRobotWriter"]
+
+
+class LeRobotWriter(StorageBackend):
+    """Appends episodes to a persistent ``LeRobotDataset``.
+
+    Args:
+        dataset_path: Root path for the LeRobotDataset directory.
+        repo_id: HuggingFace repo ID (e.g. ``"org/dataset-name"``).
+        features: Feature schema dict required when creating a new dataset.
+            Shapes may be lists (converted to tuples internally).
+        topic_to_feature: Mapping from topic string to LeRobot feature name.
+        fps: Dataset frame rate.
+        push_to_hub: Push dataset to HuggingFace Hub on ``close()``.
+        robot_type: Robot type string embedded in dataset metadata.
+
+    Raises:
+        ImportError: When ``lerobot`` is not installed.
+        ValueError: When ``topic_to_feature`` is empty.
+    """
+
+    def __init__(
+        self,
+        dataset_path: str,
+        repo_id: str,
+        features: dict[str, Any] | None,
+        topic_to_feature: dict[str, str],
+        fps: int = 30,
+        push_to_hub: bool = False,
+        robot_type: str = "dexim-dualarm",
+    ) -> None:
+        try:
+            from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
+
+            self._LeRobotDataset = LeRobotDataset
+        except ImportError as exc:
+            raise ImportError(
+                "lerobot is required for the LeRobot storage backend. "
+                "Install it with: pip install lerobot"
+            ) from exc
+
+        if not topic_to_feature:
+            raise ValueError(
+                "topic_to_feature must map at least one topic to a LeRobot feature name"
+            )
+
+        self._topic_to_feature = topic_to_feature
+        self._push_to_hub = push_to_hub
+        self._lock = threading.Lock()
+
+        # Normalise list shapes → tuples for the LeRobot API
+        processed_features: dict[str, Any] | None = None
+        if features is not None:
+            processed_features = {}
+            for k, v in features.items():
+                if isinstance(v, dict) and isinstance(v.get("shape"), list):
+                    processed_features[k] = {**v, "shape": tuple(v["shape"])}
+                else:
+                    processed_features[k] = v
+
+        self._dataset = LeRobotDataset.create(
+            repo_id=repo_id,
+            fps=fps,
+            root=dataset_path,
+            robot_type=robot_type,
+            features=processed_features,
+            tolerance_s=1e-4,
+            use_videos=True,
+        )
+        logger.info(
+            f"LeRobotWriter: dataset created at {dataset_path!r} "
+            f"(repo_id={repo_id!r}, fps={fps})"
+        )
+
+    def write_episode(
+        self,
+        frames: list[dict[str, Any]],
+        episode_number: int,
+        task: str = "",
+    ) -> None:
+        """Append aligned frames as a new LeRobot episode.
+
+        Args:
+            frames: Aligned frame list from ``align_episode_data``.
+            episode_number: Episode index (used for logging only).
+            task: Task label passed to ``save_episode()``.
+        """
+        if not frames:
+            logger.warning(f"Episode {episode_number}: no frames to write — skipped")
+            return
+
+        with self._lock:
+            try:
+                for frame in frames:
+                    mapped = self._map_frame(frame)
+                    if mapped:
+                        self._dataset.add_frame(mapped)
+                self._dataset.save_episode(task=task)
+                logger.info(
+                    f"Episode {episode_number} saved to LeRobotDataset "
+                    f"({len(frames)} frames)"
+                )
+            except Exception as exc:
+                logger.error(
+                    f"LeRobotWriter: episode {episode_number} failed — {exc}",
+                    exc_info=True,
+                )
+                raise
+
+    def close(self) -> None:
+        """Consolidate the dataset and optionally push to HuggingFace Hub."""
+        with self._lock:
+            try:
+                self._dataset.consolidate()
+                logger.info("LeRobotDataset consolidated")
+            except Exception as exc:
+                logger.error(f"LeRobotWriter.close: consolidate failed — {exc}")
+
+            if self._push_to_hub:
+                try:
+                    self._dataset.push_to_hub()
+                    logger.success("LeRobotDataset pushed to Hub")
+                except Exception as exc:
+                    logger.error(f"LeRobotWriter.close: push_to_hub failed — {exc}")
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _map_frame(self, frame: dict[str, Any]) -> dict[str, Any]:
+        """Convert a frame dict from topic keys to LeRobot feature keys.
+
+        Topics absent from ``topic_to_feature`` are silently dropped.
+
+        Args:
+            frame: Aligned frame dict (topic → data, plus ``"timestamp"``).
+
+        Returns:
+            Dict keyed by LeRobot feature names.
+        """
+        mapped: dict[str, Any] = {}
+        for topic, feature_name in self._topic_to_feature.items():
+            value = frame.get(topic)
+            if value is not None:
+                mapped[feature_name] = value
+        return mapped

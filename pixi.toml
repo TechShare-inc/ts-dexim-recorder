@@ -1,0 +1,21 @@
+[workspace]
+authors = ["haoyan.li <haoyan.li@techshare.co.jp>"]
+channels = ["conda-forge"]
+name = "ts-dexim-recorder"
+platforms = ["win-64"]
+version = "0.1.0"
+
+[tasks]
+test = "pytest tests/ -m 'not hardware'"
+test-cov = "pytest tests/ -m 'not hardware' --cov=src/dexim/recorder --cov-report=term-missing"
+
+[dependencies]
+python = "3.10.*"
+hdf5 = ">=1.12"
+
+[pypi-dependencies]
+dexim-recorder = { path = ".", editable = true }
+dexim-core = { git = "https://github.com/TechShare-inc/ts-dexim-core.git", branch = "main" }
+pytest = ">=9.0.2, <10"
+pytest-cov = ">=7.0.0, <8"
+ruff = ">=0.15.5, <0.16"

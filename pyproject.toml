@@ -1,0 +1,45 @@
+[project]
+name = "dexim-recorder"
+version = "0.1.0"
+description = "DexImitate data recorder — multi-stream episode collection in HDF5 and LeRobot formats"
+readme = "README.md"
+authors = [
+    { name = "haoyan.li", email = "haoyan.li@techshare.co.jp" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=2.2.0",
+    "loguru>=0.7.0",
+    "h5py>=3.0.0",
+    "lerobot==0.4.4",
+    "packaging>=24.2,<26",
+    "setuptools>=71.0,<81",
+    "dexim-core>=0.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "dexim.recorder"
+namespace = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
