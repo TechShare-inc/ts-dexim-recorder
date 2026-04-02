@@ -712,7 +712,7 @@ packages:
 - pypi: ./
   name: dexim-recorder
   version: 0.1.0
-  sha256: 1d511cdadb884bafdf12acd2f6bf4b198b96646c1dad6a253e25037d551963fe
+  sha256: 9d59a07fec6f43c4055a0d22c81838434d89f52d8f461c1d5251b602d47a3766
   requires_dist:
   - numpy>=2.2.0
   - loguru>=0.7.0

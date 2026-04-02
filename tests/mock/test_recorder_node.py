@@ -27,7 +27,7 @@ def recorder_config() -> RecorderNodeConfig:
         data_endpoints=["tcp://localhost:5600"],
         storage_format="hdf5",
         output_dir="/tmp/dexim_recorder_test",
-        task="pick_and_place",
+        default_task="pick_and_place",
     )
 
 
@@ -98,6 +98,7 @@ class TestOnStopRecording:
     def test_submits_episode_when_buffers_not_empty(
         self, recorder_node, patch_writer_queue, recorder_config
     ):
+        recorder_node.on_start_recording()
         recorder_node._buffers["obs/arm/joint_state"].append((1.0, [0.1, 0.2]))
         recorder_node._buffers["obs/cam/video_frame"].append((1.0, b"frame"))
 
@@ -105,8 +106,8 @@ class TestOnStopRecording:
 
         patch_writer_queue.submit.assert_called_once()
         call_kwargs = patch_writer_queue.submit.call_args.kwargs
-        assert call_kwargs["episode_number"] == 1
-        assert call_kwargs["task"] == recorder_config.task
+        assert call_kwargs["metadata"].episode_index == 0
+        assert call_kwargs["metadata"].task_id == recorder_config.default_task
         assert "obs/arm/joint_state" in call_kwargs["buffers"]
         assert "obs/cam/video_frame" in call_kwargs["buffers"]
 
