@@ -129,11 +129,13 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/2a/fa/926c003379b19fca39dd4634818b00dec6c62d87faf628d1394e137354d4/pyyaml-6.0.3-cp310-cp310-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/d5/ca/6a2cc3a73170d10b5af1f1613baa2ed1f8f46f62dd0bfab2bffd2c2fe260/pyyaml_include-1.4.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/62/b2/f4ab56c8c595abcb26b2be5fd9fa9e6899c1e5ad54964e93ae8bb35482be/pyzmq-27.1.0-cp310-cp310-win_amd64.whl
+      - pypi: https://files.pythonhosted.org/packages/a9/10/e4b1e0e5b6b6745c8098c275b69bc9d73e9542d5c7da4f137542b499ed44/readchar-4.2.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/2c/58/ca301544e1fa93ed4f80d724bf5b194f6e4b945841c5bfd555878eea9fcb/referencing-0.37.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/c4/89/39d04329e858956d2db1d08a10f02be8f6837c964663513ac4393158bef9/regex-2026.3.32-cp310-cp310-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/d7/8e/7540e8a2036f79a125c1d2ebadf69ed7901608859186c856fa0388ef4197/requests-2.33.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/be/e7/99fc91c0f99f69d7d43e1db0a6f6cb8273ffc02111539bfc1fee43749bad/rerun_sdk-0.26.2-cp39-abi3-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/14/25/b208c5683343959b670dc001595f2f3737e051da617f66c31f7c4fa93abc/rich-14.3.3-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/ca/e5/d708d262b600a352abe01c2ae360d8ff75b0af819b78e9af293191d928e6/rich_click-1.9.7-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/96/cb/156d7a5cf4f78a7cc571465d8aec7a3c447c94f6749c5123f08438bcf7bc/rpds_py-0.30.0-cp310-cp310-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/74/25/5282c8270bfcd620d3e73beb35b40ac4ab00f0a898d98ebeb41ef0989ec8/rtree-1.4.1-py3-none-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/1f/a2/ef467cb77099062317154c63f234b8a7baf7cb690b99af760c5b68b9ee7f/ruff-0.15.8-py3-none-win_amd64.whl
@@ -170,6 +172,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/c8/60/4ea0d6df0b497d51bf2ef87eaab0eb26f8bc3b3313c012da5df3383cced9/yourdfpy-0.0.60-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/2e/54/647ade08bf0db230bfea292f893923872fd20be6ac6f53b2b936ba839d75/zipp-3.23.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/93/90/96d50ad417a8ace5f841b3228e93d1bb13e6ad356737f42e2dde30d8bd68/zstandard-0.25.0-cp310-cp310-win_amd64.whl
+      - pypi: ../dexim-cli-common
       - pypi: ./
 packages:
 - pypi: https://files.pythonhosted.org/packages/7e/46/02ac5e262d4af18054b3e922b2baedbb2a03289ee792162de60a865defc5/accelerate-1.13.0-py3-none-any.whl
@@ -683,6 +686,16 @@ packages:
   - pytest-cov~=6.0.0 ; extra == 'test'
   - python-dotenv~=1.0.0 ; extra == 'test'
   requires_python: '>=3.9'
+- pypi: ../dexim-cli-common
+  name: dexim-cli-common
+  version: 0.1.0
+  sha256: 1f07d61686aedda02866fdc9822adaa2935c249fe7e5c7849d987eca7f6b2774
+  requires_dist:
+  - rich>=13.0
+  - click>=8.0
+  - rich-click>=1.8
+  - readchar>=4.0
+  requires_python: '>=3.10'
 - pypi: git+https://github.com/TechShare-inc/ts-dexim-core.git?branch=main#b6caba0789307125862e30d0af00b07551531fd5
   name: dexim-core
   version: 0.1.0
@@ -699,7 +712,7 @@ packages:
 - pypi: ./
   name: dexim-recorder
   version: 0.1.0
-  sha256: 614a08d2a8f38de7de02f8274d8d6064a32490f5c27195c42ff97518b8ebee8c
+  sha256: 1d511cdadb884bafdf12acd2f6bf4b198b96646c1dad6a253e25037d551963fe
   requires_dist:
   - numpy>=2.2.0
   - loguru>=0.7.0
@@ -708,6 +721,9 @@ packages:
   - packaging>=24.2,<26
   - setuptools>=71.0,<81
   - dexim-core>=0.1.0
+  - dexim-cli-common>=0.1.0
+  - click>=8.0
+  - rich-click>=1.8
   - pytest>=7.0.0 ; extra == 'dev'
   - pytest-cov>=4.0.0 ; extra == 'dev'
   - ruff>=0.1.0 ; extra == 'dev'
@@ -2266,6 +2282,11 @@ packages:
   requires_dist:
   - cffi ; implementation_name == 'pypy'
   requires_python: '>=3.8'
+- pypi: https://files.pythonhosted.org/packages/a9/10/e4b1e0e5b6b6745c8098c275b69bc9d73e9542d5c7da4f137542b499ed44/readchar-4.2.1-py3-none-any.whl
+  name: readchar
+  version: 4.2.1
+  sha256: a769305cd3994bb5fa2764aa4073452dc105a4ec39068ffe6efd3c20c60acc77
+  requires_python: '>=3.8'
 - pypi: https://files.pythonhosted.org/packages/2c/58/ca301544e1fa93ed4f80d724bf5b194f6e4b945841c5bfd555878eea9fcb/referencing-0.37.0-py3-none-any.whl
   name: referencing
   version: 0.37.0
@@ -2317,6 +2338,41 @@ packages:
   - markdown-it-py>=2.2.0
   - pygments>=2.13.0,<3.0.0
   requires_python: '>=3.8.0'
+- pypi: https://files.pythonhosted.org/packages/ca/e5/d708d262b600a352abe01c2ae360d8ff75b0af819b78e9af293191d928e6/rich_click-1.9.7-py3-none-any.whl
+  name: rich-click
+  version: 1.9.7
+  sha256: 2f99120fca78f536e07b114d3b60333bc4bb2a0969053b1250869bcdc1b5351b
+  requires_dist:
+  - click>=8
+  - colorama ; sys_platform == 'win32'
+  - rich>=12
+  - typing-extensions>=4 ; python_full_version < '3.11'
+  - inline-snapshot>=0.24 ; extra == 'dev'
+  - jsonschema>=4 ; extra == 'dev'
+  - mypy>=1.14.1 ; extra == 'dev'
+  - nodeenv>=1.9.1 ; extra == 'dev'
+  - packaging>=25 ; extra == 'dev'
+  - pre-commit>=3.5 ; extra == 'dev'
+  - pytest>=8.3.5 ; extra == 'dev'
+  - pytest-cov>=5 ; extra == 'dev'
+  - rich-codex>=1.2.11 ; extra == 'dev'
+  - ruff>=0.12.4 ; extra == 'dev'
+  - typer>=0.15 ; extra == 'dev'
+  - types-setuptools>=75.8.0.20250110 ; extra == 'dev'
+  - markdown-include>=0.8.1 ; extra == 'docs'
+  - mike>=2.1.3 ; extra == 'docs'
+  - mkdocs[docs]>=1.6.1 ; extra == 'docs'
+  - mkdocs-github-admonitions-plugin>=0.1.1 ; extra == 'docs'
+  - mkdocs-glightbox>=0.4 ; extra == 'docs'
+  - mkdocs-include-markdown-plugin>=7.1.7 ; python_full_version >= '3.9' and extra == 'docs'
+  - mkdocs-material[imaging]~=9.5.18 ; extra == 'docs'
+  - mkdocs-material-extensions>=1.3.1 ; extra == 'docs'
+  - mkdocs-redirects>=1.2.2 ; extra == 'docs'
+  - mkdocs-rss-plugin>=1.15 ; extra == 'docs'
+  - mkdocstrings[python]>=0.26.1 ; extra == 'docs'
+  - rich-codex>=1.2.11 ; extra == 'docs'
+  - typer>=0.15 ; extra == 'docs'
+  requires_python: '>=3.8'
 - pypi: https://files.pythonhosted.org/packages/96/cb/156d7a5cf4f78a7cc571465d8aec7a3c447c94f6749c5123f08438bcf7bc/rpds_py-0.30.0-cp310-cp310-win_amd64.whl
   name: rpds-py
   version: 0.30.0

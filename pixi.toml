@@ -16,6 +16,7 @@ hdf5 = ">=1.12"
 [pypi-dependencies]
 dexim-recorder = { path = ".", editable = true }
 dexim-core = { git = "https://github.com/TechShare-inc/ts-dexim-core.git", branch = "main" }
+dexim-cli-common = { path = "../dexim-cli-common", editable = true }
 pytest = ">=9.0.2, <10"
 pytest-cov = ">=7.0.0, <8"
 ruff = ">=0.15.5, <0.16"
