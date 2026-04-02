@@ -11,6 +11,7 @@ path from the old ``data-recorder-node`` is intentionally not ported.
 
 from __future__ import annotations
 
+import io
 import threading
 from typing import Any
 
@@ -151,6 +152,8 @@ class LeRobotWriter(StorageBackend):
         """Convert a frame dict from topic keys to LeRobot feature keys.
 
         Topics absent from ``topic_to_feature`` are silently dropped.
+        ``FrameObservation`` dicts (containing JPEG bytes under ``"color"``)
+        are decoded to PIL Images before being handed to LeRobot.
 
         Args:
             frame: Aligned frame dict (topic → data, plus ``"timestamp"``).
@@ -162,5 +165,28 @@ class LeRobotWriter(StorageBackend):
         for topic, feature_name in self._topic_to_feature.items():
             value = frame.get(topic)
             if value is not None:
-                mapped[feature_name] = value
+                mapped[feature_name] = self._coerce_image(value)
         return mapped
+
+    @staticmethod
+    def _coerce_image(value: Any) -> Any:
+        """Convert a FrameObservation dict to a PIL Image, pass other values through.
+
+        ``FrameObservation.to_dict()`` serialises the color frame as
+        JPEG-compressed bytes under the ``"color"`` key.  LeRobot's
+        ``add_frame()`` requires either a ``PIL.Image`` or a numpy array for
+        image features, so we decode here.
+
+        Args:
+            value: Buffered value — either a raw data dict or a scalar/array.
+
+        Returns:
+            PIL RGB image when the value is a ``FrameObservation`` dict;
+            otherwise the original value unchanged.
+        """
+        if not (isinstance(value, dict) and "color" in value):
+            return value
+        from PIL import Image  # lerobot already requires Pillow
+
+        color_bytes: bytes = value["color"]
+        return Image.open(io.BytesIO(color_bytes)).convert("RGB")
