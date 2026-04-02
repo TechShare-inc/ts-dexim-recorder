@@ -25,7 +25,7 @@ def render_config(cfg: RecorderNodeConfig, console: Console) -> None:
         ["node_id", cfg.node_id],
         ["storage_format", cfg.storage_format],
         ["output_dir", cfg.output_dir],
-        ["task", cfg.task or "(none)"],
+        ["default_task", cfg.default_task or "(none)"],
         ["fps", str(cfg.fps)],
         ["data_endpoints", ", ".join(cfg.data_endpoints)],
         ["master_clock_topic", cfg.master_clock_topic or "(auto)"],
@@ -35,11 +35,13 @@ def render_config(cfg: RecorderNodeConfig, console: Console) -> None:
     ]
 
     if cfg.storage_format == "lerobot":
-        rows.extend([
-            ["lerobot_dataset_path", cfg.lerobot_dataset_path],
-            ["lerobot_repo_id", cfg.lerobot_repo_id or "(none)"],
-            ["push_to_hub", str(cfg.push_to_hub)],
-        ])
+        rows.extend(
+            [
+                ["lerobot_dataset_path", cfg.lerobot_dataset_path],
+                ["lerobot_repo_id", cfg.lerobot_repo_id or "(none)"],
+                ["push_to_hub", str(cfg.push_to_hub)],
+            ]
+        )
 
     console.print(
         make_table(

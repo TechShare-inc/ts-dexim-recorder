@@ -59,9 +59,9 @@ def _path_value(p: Path | None) -> str | None:
     help="ZMQ data endpoint to subscribe to (repeatable).",
 )
 @click.option(
-    "--task",
+    "--default-task",
     default="",
-    help="Task name embedded in episode metadata.",
+    help="Default task name embedded in episode metadata.",
 )
 @click.option(
     "--fps",
@@ -83,7 +83,7 @@ def run(
     storage_format: str,
     output_dir: str,
     endpoints: tuple[str, ...],
-    task: str,
+    default_task: str,
     fps: int,
     node_id: str,
 ) -> None:
@@ -112,7 +112,7 @@ def run(
             data_endpoints=list(endpoints),
             storage_format=storage_format,
             output_dir=output_dir,
-            task=task,
+            default_task=default_task,
             fps=fps,
         )
 
@@ -123,14 +123,12 @@ def run(
     console.print(f"  Format:     [key]{cfg.storage_format}[/key]")
     console.print(f"  Output:     [key]{cfg.output_dir}[/key]")
     console.print(f"  Endpoints:  [key]{', '.join(cfg.data_endpoints)}[/key]")
-    if cfg.task:
-        console.print(f"  Task:       [key]{cfg.task}[/key]")
+    if cfg.default_task:
+        console.print(f"  Default Task:       [key]{cfg.default_task}[/key]")
 
     try:
         node = DataRecorderNode(config=cfg)
-        console.print(
-            "[success]● Recorder node is running. Press Ctrl+C to stop.[/]"
-        )
+        console.print("[success]● Recorder node is running. Press Ctrl+C to stop.[/]")
         node.run()
     except KeyboardInterrupt:
         console.print("\n[warning]Stopping.[/]")
