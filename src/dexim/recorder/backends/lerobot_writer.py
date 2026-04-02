@@ -1,4 +1,4 @@
-"""LeRobot v3 storage backend.
+"""LeRobot v0.4.x storage backend.
 
 Appends episodes to a persistent ``LeRobotDataset`` (Parquet + video).
 All dataset operations are guarded by a ``threading.Lock`` to be safe
@@ -44,14 +44,14 @@ class LeRobotWriter(StorageBackend):
         self,
         dataset_path: str,
         repo_id: str,
-        features: dict[str, Any] | None,
+        features: dict[str, Any],
         topic_to_feature: dict[str, str],
         fps: int = 30,
         push_to_hub: bool = False,
         robot_type: str = "dexim-dualarm",
     ) -> None:
         try:
-            from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
+            from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
             self._LeRobotDataset = LeRobotDataset
         except ImportError as exc:
@@ -70,14 +70,12 @@ class LeRobotWriter(StorageBackend):
         self._lock = threading.Lock()
 
         # Normalise list shapes → tuples for the LeRobot API
-        processed_features: dict[str, Any] | None = None
-        if features is not None:
-            processed_features = {}
-            for k, v in features.items():
-                if isinstance(v, dict) and isinstance(v.get("shape"), list):
-                    processed_features[k] = {**v, "shape": tuple(v["shape"])}
-                else:
-                    processed_features[k] = v
+        processed_features: dict[str, Any] = {}
+        for k, v in features.items():
+            if isinstance(v, dict) and isinstance(v.get("shape"), list):
+                processed_features[k] = {**v, "shape": tuple(v["shape"])}
+            else:
+                processed_features[k] = v
 
         self._dataset = LeRobotDataset.create(
             repo_id=repo_id,
@@ -105,7 +103,9 @@ class LeRobotWriter(StorageBackend):
             metadata: Episode metadata snapshot (index, task, timing, topics).
         """
         if not frames:
-            logger.warning(f"Episode {metadata.episode_index}: no frames to write — skipped")
+            logger.warning(
+                f"Episode {metadata.episode_index}: no frames to write — skipped"
+            )
             return
 
         with self._lock:
@@ -113,8 +113,9 @@ class LeRobotWriter(StorageBackend):
                 for frame in frames:
                     mapped = self._map_frame(frame)
                     if mapped:
+                        mapped["task"] = metadata.task_id
                         self._dataset.add_frame(mapped)
-                self._dataset.save_episode(task=metadata.task_id)
+                self._dataset.save_episode()
                 logger.info(
                     f"Episode {metadata.episode_index} saved to LeRobotDataset "
                     f"({len(frames)} frames)"
@@ -127,13 +128,13 @@ class LeRobotWriter(StorageBackend):
                 raise
 
     def close(self) -> None:
-        """Consolidate the dataset and optionally push to HuggingFace Hub."""
+        """Finalize the dataset and optionally push to HuggingFace Hub."""
         with self._lock:
             try:
-                self._dataset.consolidate()
-                logger.info("LeRobotDataset consolidated")
+                self._dataset.finalize()
+                logger.info("LeRobotDataset finalized")
             except Exception as exc:
-                logger.error(f"LeRobotWriter.close: consolidate failed — {exc}")
+                logger.error(f"LeRobotWriter.close: finalize failed — {exc}")
 
             if self._push_to_hub:
                 try:

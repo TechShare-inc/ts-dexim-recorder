@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
+
+import yaml
 
 DEXIM_CONFIG_DIR_ENV = "DEXIM_CONFIG_DIR"
 
@@ -99,3 +102,98 @@ def list_named_configs(config_dir: str | None = None) -> list[str]:
     if not recorder_dir.is_dir():
         return []
     return sorted(p.stem for p in recorder_dir.glob("*.yaml"))
+
+
+def create_config_yaml(
+    name: str,
+    data: dict[str, Any],
+    config_dir: str | None = None,
+) -> Path:
+    """Create a new named recorder config YAML.
+
+    Args:
+        name: Logical config name (e.g. ``lab-hdf5``).
+        data: Config dict to serialize.
+        config_dir: Config root directory override.
+
+    Returns:
+        Path to the created YAML file.
+
+    Raises:
+        FileExistsError: If a config with this name already exists.
+    """
+    path = get_config_yaml_path(name, config_dir)
+    if path.exists():
+        raise FileExistsError(
+            f"Config '{name}' already exists: {path}\n"
+            f"Use 'config edit {name}' to modify it."
+        )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as fh:
+        yaml.safe_dump(data, fh, sort_keys=False, default_flow_style=False)
+    return path
+
+
+def edit_config_yaml(
+    name: str,
+    updates: dict[str, Any],
+    config_dir: str | None = None,
+) -> Path:
+    """Patch fields in an existing named recorder config YAML.
+
+    Performs a shallow merge: top-level keys in *updates* overwrite
+    corresponding keys in the existing file.  Nested dicts are merged
+    one level deep.
+
+    Args:
+        name: Logical config name.
+        updates: Mapping of fields to set/overwrite.
+        config_dir: Config root directory override.
+
+    Returns:
+        Path to the updated YAML file.
+
+    Raises:
+        FileNotFoundError: If the config does not exist.
+    """
+    path = get_config_yaml_path(name, config_dir)
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Config '{name}' not found: {path}\n"
+            f"Use 'config new {name}' to create it first."
+        )
+    with path.open("r", encoding="utf-8") as fh:
+        data = yaml.safe_load(fh) or {}
+
+    for key, value in updates.items():
+        if isinstance(value, dict) and isinstance(data.get(key), dict):
+            data[key].update(value)
+        else:
+            data[key] = value
+
+    with path.open("w", encoding="utf-8") as fh:
+        yaml.safe_dump(data, fh, sort_keys=False, default_flow_style=False)
+    return path
+
+
+def remove_config_yaml(name: str, config_dir: str | None = None) -> Path:
+    """Delete a named recorder config YAML from disk.
+
+    Args:
+        name: Logical config name.
+        config_dir: Config root directory override.
+
+    Returns:
+        Path that was deleted.
+
+    Raises:
+        FileNotFoundError: If the config does not exist.
+    """
+    path = get_config_yaml_path(name, config_dir)
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Config '{name}' not found: {path}\n"
+            f"Use 'config list' to see available configs."
+        )
+    path.unlink()
+    return path

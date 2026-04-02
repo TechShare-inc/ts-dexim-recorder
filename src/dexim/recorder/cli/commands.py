@@ -9,8 +9,11 @@ import rich_click as click
 from dexim.cli.common import get_console, handle_cli_error, make_table
 
 from .config_utils import (
+    create_config_yaml,
+    edit_config_yaml,
     get_config_yaml_path,
     list_named_configs,
+    remove_config_yaml,
     resolve_config_path,
 )
 
@@ -271,3 +274,150 @@ def config_list(config_dir: Path | None) -> None:
             rows=rows,
         )
     )
+
+
+def _config_dir_option(func):
+    return click.option(
+        "--config-dir",
+        type=click.Path(path_type=Path, file_okay=False),
+        default=None,
+        help="Config root directory (default: ./config or DEXIM_CONFIG_DIR).",
+    )(func)
+
+
+def _config_field_options(func):
+    """Shared CLI options for config new / config edit."""
+    func = click.option(
+        "--format",
+        "storage_format",
+        type=click.Choice(["hdf5", "lerobot"]),
+        default=None,
+        help="Storage backend format.",
+    )(func)
+    func = click.option(
+        "--output-dir",
+        default=None,
+        help="Directory for episode files.",
+    )(func)
+    func = click.option(
+        "--endpoint",
+        "-e",
+        "endpoints",
+        multiple=True,
+        help="ZMQ data endpoint to subscribe to (repeatable).",
+    )(func)
+    func = click.option(
+        "--default-task",
+        default=None,
+        help="Default task name embedded in episode metadata.",
+    )(func)
+    func = click.option(
+        "--fps",
+        type=int,
+        default=None,
+        help="Frame rate for LeRobot dataset.",
+    )(func)
+    func = click.option(
+        "--node-id",
+        default=None,
+        help="Unique node identifier.",
+    )(func)
+    return func
+
+
+@config_group.command(name="new")
+@click.argument("config_name")
+@_config_field_options
+@_config_dir_option
+@handle_cli_error
+def config_new(
+    config_name: str,
+    config_dir: Path | None,
+    storage_format: str | None,
+    output_dir: str | None,
+    endpoints: tuple[str, ...],
+    default_task: str | None,
+    fps: int | None,
+    node_id: str | None,
+) -> None:
+    """Create a new named recorder configuration file."""
+    console = get_console()
+    if not endpoints:
+        raise click.UsageError(
+            "Provide at least one --endpoint/-e for the new config."
+        )
+    data: dict = {"data_endpoints": list(endpoints)}
+    if storage_format is not None:
+        data["storage_format"] = storage_format
+    if output_dir is not None:
+        data["output_dir"] = output_dir
+    if default_task is not None:
+        data["default_task"] = default_task
+    if fps is not None:
+        data["fps"] = fps
+    if node_id is not None:
+        data["node_id"] = node_id
+    path = create_config_yaml(config_name, data, _path_value(config_dir))
+    console.print(f"[success]\u2713 Created config '{config_name}':[/] {path}")
+
+
+@config_group.command(name="edit")
+@click.argument("config_name")
+@_config_field_options
+@_config_dir_option
+@handle_cli_error
+def config_edit(
+    config_name: str,
+    config_dir: Path | None,
+    storage_format: str | None,
+    output_dir: str | None,
+    endpoints: tuple[str, ...],
+    default_task: str | None,
+    fps: int | None,
+    node_id: str | None,
+) -> None:
+    """Update fields in an existing named recorder configuration file."""
+    console = get_console()
+    updates: dict = {}
+    if endpoints:
+        updates["data_endpoints"] = list(endpoints)
+    if storage_format is not None:
+        updates["storage_format"] = storage_format
+    if output_dir is not None:
+        updates["output_dir"] = output_dir
+    if default_task is not None:
+        updates["default_task"] = default_task
+    if fps is not None:
+        updates["fps"] = fps
+    if node_id is not None:
+        updates["node_id"] = node_id
+    if not updates:
+        raise click.UsageError("Specify at least one field to change.")
+    path = edit_config_yaml(config_name, updates, _path_value(config_dir))
+    console.print(f"[success]\u2713 Updated config '{config_name}':[/] {path}")
+
+
+@config_group.command(name="remove")
+@click.argument("config_name")
+@click.option(
+    "--yes",
+    is_flag=True,
+    default=False,
+    help="Confirm deletion without prompting.",
+)
+@_config_dir_option
+@handle_cli_error
+def config_remove(
+    config_name: str,
+    yes: bool,
+    config_dir: Path | None,
+) -> None:
+    """Delete a named recorder configuration file."""
+    console = get_console()
+    if not yes:
+        raise click.UsageError(
+            f"This will permanently delete config '{config_name}'. "
+            f"Pass --yes to confirm."
+        )
+    path = remove_config_yaml(config_name, _path_value(config_dir))
+    console.print(f"[success]\u2713 Removed config '{config_name}':[/] {path}")
