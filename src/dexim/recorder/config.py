@@ -32,7 +32,9 @@ class RecorderNodeConfig:
         storage_format: Storage backend — ``"hdf5"`` or ``"lerobot"``.
         output_dir: Directory for HDF5 episode files or base path for the
             LeRobot dataset.
-        task: Task name embedded in episode metadata.
+        default_task: Fallback task name used when no SET_TASK command has been
+            received. Runtime task metadata supplied via SET_TASK takes
+            precedence over this value.
         master_clock_topic: Topic used as the timing reference for alignment.
             Auto-selected when ``None`` (video_frame topic > most-samples).
         continuous_topics: Topics aligned with linear interpolation.
@@ -55,9 +57,9 @@ class RecorderNodeConfig:
 
     node_id: str = "recorder"
     data_endpoints: list[str] = field(default_factory=list)
-    storage_format: str = "hdf5"
+    storage_format: str = "lerobot"
     output_dir: str = "output/episodes"
-    task: str = ""
+    default_task: str = ""
     master_clock_topic: str | None = None
     continuous_topics: list[str] = field(default_factory=list)
     topic_dtypes: dict[str, str] = field(default_factory=dict)

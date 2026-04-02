@@ -17,6 +17,7 @@ from loguru import logger
 
 from dexim.recorder.alignment import align_episode_data
 from dexim.recorder.backends.base import StorageBackend
+from dexim.recorder.metadata import EpisodeMetadata
 
 __all__ = ["EpisodeWriterQueue"]
 
@@ -51,7 +52,7 @@ class EpisodeWriterQueue:
         self._master_clock_topic = master_clock_topic
         self._continuous_topics: list[str] = list(continuous_topics or [])
         self._queue: queue.Queue[
-            tuple[dict[str, list[tuple[float, Any]]], int, str] | _ShutdownSentinel
+            tuple[dict[str, list[tuple[float, Any]]], EpisodeMetadata] | _ShutdownSentinel
         ] = queue.Queue()
         self._thread = threading.Thread(
             target=self._worker,
@@ -64,8 +65,7 @@ class EpisodeWriterQueue:
     def submit(
         self,
         buffers: dict[str, list[tuple[float, Any]]],
-        episode_number: int,
-        task: str = "",
+        metadata: EpisodeMetadata,
     ) -> None:
         """Queue an episode for writing.
 
@@ -74,11 +74,14 @@ class EpisodeWriterQueue:
 
         Args:
             buffers: Deep copy of the episode data buffers (topic → samples).
-            episode_number: Sequential episode index (1-based).
-            task: Task name to embed in episode metadata.
+            metadata: Episode metadata snapshot.
         """
-        self._queue.put((buffers, episode_number, task))
-        logger.debug(f"Episode {episode_number} queued for writing")
+        self._queue.put((buffers, metadata))
+        logger.debug(f"Episode {metadata.episode_index} queued for writing")
+
+    def qsize(self) -> int:
+        """Return the number of episodes currently waiting to be written."""
+        return self._queue.qsize()
 
     def shutdown(self, timeout: float = 30.0) -> None:
         """Drain the queue, process remaining episodes, then stop the thread.
@@ -107,33 +110,31 @@ class EpisodeWriterQueue:
             if isinstance(item, _ShutdownSentinel):
                 logger.debug("EpisodeWriterQueue worker: shutdown sentinel received")
                 break
-            buffers, episode_number, task = item
-            self._write_one(buffers, episode_number, task)
+            buffers, metadata = item
+            self._write_one(buffers, metadata)
 
     def _write_one(
         self,
         buffers: dict[str, list[tuple[float, Any]]],
-        episode_number: int,
-        task: str,
+        metadata: EpisodeMetadata,
     ) -> None:
         """Align buffers and write a single episode to the backend.
 
         Args:
             buffers: Episode data buffers.
-            episode_number: Episode index.
-            task: Task label.
+            metadata: Episode metadata snapshot.
         """
         try:
-            logger.info(f"Writing episode {episode_number} ({len(buffers)} topics)…")
+            logger.info(f"Writing episode {metadata.episode_index} ({len(buffers)} topics)…")
             frames = align_episode_data(
                 buffers,
                 master_clock_topic=self._master_clock_topic,
                 continuous_topics=self._continuous_topics,
             )
-            self._backend.write_episode(frames, episode_number, task)
-            logger.success(f"Episode {episode_number} written ({len(frames)} frames)")
+            self._backend.write_episode(frames, metadata)
+            logger.success(f"Episode {metadata.episode_index} written ({len(frames)} frames)")
         except Exception as exc:
             logger.error(
-                f"Episode {episode_number} write failed — {exc}",
+                f"Episode {metadata.episode_index} write failed — {exc}",
                 exc_info=True,
             )

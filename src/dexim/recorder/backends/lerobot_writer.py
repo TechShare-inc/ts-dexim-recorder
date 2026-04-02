@@ -17,6 +17,7 @@ from typing import Any
 from loguru import logger
 
 from dexim.recorder.backends.base import StorageBackend
+from dexim.recorder.metadata import EpisodeMetadata
 
 __all__ = ["LeRobotWriter"]
 
@@ -95,18 +96,16 @@ class LeRobotWriter(StorageBackend):
     def write_episode(
         self,
         frames: list[dict[str, Any]],
-        episode_number: int,
-        task: str = "",
+        metadata: EpisodeMetadata,
     ) -> None:
         """Append aligned frames as a new LeRobot episode.
 
         Args:
             frames: Aligned frame list from ``align_episode_data``.
-            episode_number: Episode index (used for logging only).
-            task: Task label passed to ``save_episode()``.
+            metadata: Episode metadata snapshot (index, task, timing, topics).
         """
         if not frames:
-            logger.warning(f"Episode {episode_number}: no frames to write — skipped")
+            logger.warning(f"Episode {metadata.episode_index}: no frames to write — skipped")
             return
 
         with self._lock:
@@ -115,14 +114,14 @@ class LeRobotWriter(StorageBackend):
                     mapped = self._map_frame(frame)
                     if mapped:
                         self._dataset.add_frame(mapped)
-                self._dataset.save_episode(task=task)
+                self._dataset.save_episode(task=metadata.task_id)
                 logger.info(
-                    f"Episode {episode_number} saved to LeRobotDataset "
+                    f"Episode {metadata.episode_index} saved to LeRobotDataset "
                     f"({len(frames)} frames)"
                 )
             except Exception as exc:
                 logger.error(
-                    f"LeRobotWriter: episode {episode_number} failed — {exc}",
+                    f"LeRobotWriter: episode {metadata.episode_index} failed — {exc}",
                     exc_info=True,
                 )
                 raise

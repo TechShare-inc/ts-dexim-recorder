@@ -10,6 +10,7 @@ from dexim.recorder.alignment import align_episode_data
 from dexim.recorder.backends.base import StorageBackend
 from dexim.recorder.backends.hdf5_writer import HDF5Writer
 from dexim.recorder.config import RecorderNodeConfig, load_config
+from dexim.recorder.metadata import EpisodeMetadata, TaskInfo
 from dexim.recorder.node import DataRecorderNode
 from dexim.recorder.writer_thread import EpisodeWriterQueue
 
@@ -17,10 +18,12 @@ __version__ = "0.1.0"
 
 __all__ = [
     "DataRecorderNode",
-    "RecorderNodeConfig",
-    "load_config",
-    "StorageBackend",
-    "HDF5Writer",
-    "align_episode_data",
+    "EpisodeMetadata",
     "EpisodeWriterQueue",
+    "HDF5Writer",
+    "RecorderNodeConfig",
+    "StorageBackend",
+    "TaskInfo",
+    "align_episode_data",
+    "load_config",
 ]

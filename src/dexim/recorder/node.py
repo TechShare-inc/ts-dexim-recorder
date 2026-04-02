@@ -25,17 +25,19 @@ from __future__ import annotations
 
 import copy
 import threading
+import time
 from collections import defaultdict
 from typing import Any
 
 import zmq
-from dexim.core.messages import unpack_data_message
+from dexim.core.messages import STATUS_HEALTHY, unpack_data_message
 from dexim.core.nodes.managed import ManagedNode
 from loguru import logger
 
 from dexim.recorder.backends.base import StorageBackend
 from dexim.recorder.backends.hdf5_writer import HDF5Writer
 from dexim.recorder.config import RecorderNodeConfig
+from dexim.recorder.metadata import EpisodeMetadata, TaskInfo
 from dexim.recorder.writer_thread import EpisodeWriterQueue
 
 __all__ = ["DataRecorderNode"]
@@ -114,6 +116,11 @@ class DataRecorderNode(ManagedNode):
         self._episode_counter: int = 0
         self._buffers: dict[str, list[tuple[float, Any]]] = defaultdict(list)
         self._buffer_lock = threading.Lock()
+
+        # Task state — updated by SET_TASK command; snapshot at each START_REC.
+        self._active_task = TaskInfo(task_id=config.default_task)
+        self._episode_task = TaskInfo()       # snapshot taken at START_REC
+        self._episode_start_time: float = 0.0
 
         # Data-plane SUB sockets (one per endpoint, all on shared _poller).
         self._sub_data_sockets: list[zmq.Socket] = []
@@ -221,13 +228,22 @@ class DataRecorderNode(ManagedNode):
         logger.info(f"{self.node_id}: stopped")
 
     def on_start_recording(self) -> None:
-        """Clear buffers at the start of each recording window."""
+        """Snapshot active task and clear buffers at the start of a recording window."""
+        self._episode_task = TaskInfo(
+            task_id=self._active_task.task_id,
+            task_description=self._active_task.task_description,
+        )
+        self._episode_start_time = time.time()
         with self._buffer_lock:
             self._buffers.clear()
-        logger.info(f"{self.node_id}: recording started — buffers cleared")
+        logger.info(
+            f"{self.node_id}: recording started — "
+            f"task={self._episode_task.task_id!r}, buffers cleared"
+        )
 
     def on_stop_recording(self) -> None:
         """Deep-copy buffers and submit the episode to the writer queue."""
+        end_time = time.time()
         with self._buffer_lock:
             if not self._buffers:
                 logger.warning(
@@ -237,16 +253,52 @@ class DataRecorderNode(ManagedNode):
             episode_buffers = copy.deepcopy(dict(self._buffers))
             self._buffers.clear()
 
-        self._episode_counter += 1
-        episode_number = self._episode_counter
-        logger.info(
-            f"{self.node_id}: queuing episode {episode_number} "
-            f"({len(episode_buffers)} topics)"
+        metadata = EpisodeMetadata(
+            episode_index=self._episode_counter,
+            task_id=self._episode_task.task_id,
+            task_description=self._episode_task.task_description,
+            start_time=self._episode_start_time,
+            end_time=end_time,
+            num_frames=0,   # populated post-alignment by the writer thread
+            num_topics=len(episode_buffers),
+            topics=list(episode_buffers.keys()),
         )
-        self._writer_queue.submit(
-            buffers=episode_buffers,
-            episode_number=episode_number,
-            task=self._config.task,
+        self._episode_counter += 1
+        logger.info(
+            f"{self.node_id}: queuing episode {metadata.episode_index} "
+            f"({metadata.num_topics} topics)"
+        )
+        self._writer_queue.submit(buffers=episode_buffers, metadata=metadata)
+
+    def on_discard_recording(self) -> None:
+        """Discard the current episode — clear buffers without writing."""
+        with self._buffer_lock:
+            discarded_topics = list(self._buffers.keys())
+            discarded_frames = sum(len(v) for v in self._buffers.values())
+            self._buffers.clear()
+        logger.info(
+            f"{self.node_id}: episode discarded — "
+            f"{len(discarded_topics)} topics, ~{discarded_frames} frames dropped "
+            f"(counter stays at {self._episode_counter})"
+        )
+
+    def on_set_task(self, task_info: dict[str, Any]) -> None:
+        """Update the active task for subsequent episodes.
+
+        If called during a recording, the change takes effect on the *next*
+        episode; the current episode retains the task snapshotted at START_REC.
+
+        Args:
+            task_info: Dict with ``task_id`` and/or ``task_description`` keys.
+        """
+        self._active_task = TaskInfo(
+            task_id=task_info.get("task_id", ""),
+            task_description=task_info.get("task_description", ""),
+        )
+        logger.info(
+            f"{self.node_id}: active task updated — "
+            f"id={self._active_task.task_id!r}, "
+            f"desc={self._active_task.task_description!r}"
         )
 
     def on_shutdown(self) -> None:
@@ -259,8 +311,28 @@ class DataRecorderNode(ManagedNode):
             logger.error(f"{self.node_id}: backend.close() failed — {exc}")
 
     # ------------------------------------------------------------------
-    # Diagnostics
+    # Diagnostics / heartbeat
     # ------------------------------------------------------------------
+
+    def send_heartbeat_if_needed(self) -> None:
+        """Override to inject recorder-specific info into every heartbeat."""
+        now = time.time()
+        if now - self._last_heartbeat_ts >= self.heartbeat_interval:
+            self.report_status(STATUS_HEALTHY, info=self._recorder_status_info())
+            self._last_heartbeat_ts = now
+
+    def _recorder_status_info(self) -> dict[str, Any]:
+        with self._buffer_lock:
+            buf_topics = len(self._buffers)
+            buf_frames = sum(len(v) for v in self._buffers.values())
+        return {
+            "is_recording": self.is_recording,
+            "episode_counter": self._episode_counter,
+            "active_task": self._active_task.task_id,
+            "buffer_topics": buf_topics,
+            "buffer_frames": buf_frames,
+            "writer_queue_depth": self._writer_queue.qsize(),
+        }
 
     def get_buffer_stats(self) -> dict[str, int]:
         """Return per-topic sample counts in the current buffer.

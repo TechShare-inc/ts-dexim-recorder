@@ -18,6 +18,7 @@ import numpy as np
 from loguru import logger
 
 from dexim.recorder.backends.base import StorageBackend
+from dexim.recorder.metadata import EpisodeMetadata
 
 __all__ = ["HDF5Writer"]
 
@@ -59,21 +60,19 @@ class HDF5Writer(StorageBackend):
     def write_episode(
         self,
         frames: list[dict[str, Any]],
-        episode_number: int,
-        task: str = "",
+        metadata: EpisodeMetadata,
     ) -> None:
         """Write aligned frames to ``episode_NNNN.h5``.
 
         Args:
             frames: Aligned frame list from ``align_episode_data``.
-            episode_number: Episode index for the filename.
-            task: Task label stored as a file-level HDF5 attribute.
+            metadata: Episode metadata snapshot (index, task, timing, topics).
         """
         if not frames:
-            logger.warning(f"Episode {episode_number}: no frames to write — skipped")
+            logger.warning(f"Episode {metadata.episode_index}: no frames to write — skipped")
             return
 
-        filepath = self._output_dir / f"episode_{episode_number:04d}.h5"
+        filepath = self._output_dir / f"episode_{metadata.episode_index:04d}.h5"
 
         # Collect all topic keys present across any frame (excluding "timestamp")
         all_topics: set[str] = set()
@@ -83,7 +82,10 @@ class HDF5Writer(StorageBackend):
         timestamps = np.array([f["timestamp"] for f in frames], dtype=np.float64)
 
         with h5py.File(filepath, "w") as hf:
-            hf.attrs["task"] = task
+            hf.attrs["task"] = metadata.task_id
+            hf.attrs["task_description"] = metadata.task_description
+            hf.attrs["start_time"] = metadata.start_time
+            hf.attrs["end_time"] = metadata.end_time
             hf.create_dataset(
                 "timestamp",
                 data=timestamps,
@@ -94,7 +96,7 @@ class HDF5Writer(StorageBackend):
                 column = [f.get(topic) for f in frames]
                 self._write_topic_dataset(hf, topic, column)
 
-        logger.info(f"Episode {episode_number} → {filepath} ({len(frames)} frames)")
+        logger.info(f"Episode {metadata.episode_index} → {filepath} ({len(frames)} frames)")
 
     def close(self) -> None:
         """No-op: each episode is an independent file."""

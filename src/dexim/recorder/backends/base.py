@@ -5,6 +5,8 @@ from __future__ import annotations
 import abc
 from typing import Any
 
+from dexim.recorder.metadata import EpisodeMetadata
+
 __all__ = ["StorageBackend"]
 
 
@@ -21,16 +23,14 @@ class StorageBackend(abc.ABC):
     def write_episode(
         self,
         frames: list[dict[str, Any]],
-        episode_number: int,
-        task: str = "",
+        metadata: EpisodeMetadata,
     ) -> None:
         """Persist one episode to the storage medium.
 
         Args:
             frames: List of aligned frame dicts.  Each dict maps topic string
                 → data value, plus a ``"timestamp"`` key (float).
-            episode_number: Sequential episode index (1-based).
-            task: Task name embedded in episode metadata.
+            metadata: Episode metadata snapshot (index, task, timing, topics).
         """
 
     @abc.abstractmethod
