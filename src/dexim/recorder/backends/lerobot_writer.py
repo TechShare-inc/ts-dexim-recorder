@@ -12,7 +12,9 @@ path from the old ``data-recorder-node`` is intentionally not ported.
 from __future__ import annotations
 
 import io
+import shutil
 import threading
+from pathlib import Path
 from typing import Any
 
 from loguru import logger
@@ -72,25 +74,43 @@ class LeRobotWriter(StorageBackend):
 
         # Normalise list shapes → tuples for the LeRobot API
         processed_features: dict[str, Any] = {}
-        for k, v in features.items():
+        for k, v in (features or {}).items():
             if isinstance(v, dict) and isinstance(v.get("shape"), list):
                 processed_features[k] = {**v, "shape": tuple(v["shape"])}
             else:
                 processed_features[k] = v
 
-        self._dataset = LeRobotDataset.create(
-            repo_id=repo_id,
-            fps=fps,
-            root=dataset_path,
-            robot_type=robot_type,
-            features=processed_features,
-            tolerance_s=1e-4,
-            use_videos=True,
-        )
-        logger.info(
-            f"LeRobotWriter: dataset created at {dataset_path!r} "
-            f"(repo_id={repo_id!r}, fps={fps})"
-        )
+        root = Path(dataset_path)
+        if root.exists() and not self._is_complete_dataset(root):
+            logger.warning(
+                f"LeRobotWriter: incomplete dataset found at {dataset_path!r} — removing and recreating"
+            )
+            shutil.rmtree(root)
+
+        if root.exists():
+            self._dataset = LeRobotDataset(
+                repo_id=repo_id,
+                root=dataset_path,
+                tolerance_s=1e-4,
+            )
+            logger.info(
+                f"LeRobotWriter: loaded existing dataset at {dataset_path!r} "
+                f"(repo_id={repo_id!r})"
+            )
+        else:
+            self._dataset = LeRobotDataset.create(
+                repo_id=repo_id,
+                fps=fps,
+                root=dataset_path,
+                robot_type=robot_type,
+                features=processed_features,
+                tolerance_s=1e-4,
+                use_videos=True,
+            )
+            logger.info(
+                f"LeRobotWriter: dataset created at {dataset_path!r} "
+                f"(repo_id={repo_id!r}, fps={fps})"
+            )
 
     def write_episode(
         self,
@@ -147,6 +167,21 @@ class LeRobotWriter(StorageBackend):
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _is_complete_dataset(root: Path) -> bool:
+        """Return True only if *root* contains a finalized LeRobot v3 dataset.
+
+        The minimum required files are:
+        - ``meta/info.json``
+        - ``meta/tasks.parquet``
+        - at least one ``data/`` parquet file
+        """
+        return (
+            (root / "meta" / "info.json").exists()
+            and (root / "meta" / "tasks.parquet").exists()
+            and any((root / "data").rglob("*.parquet"))
+        )
 
     def _map_frame(self, frame: dict[str, Any]) -> dict[str, Any]:
         """Convert a frame dict from topic keys to LeRobot feature keys.

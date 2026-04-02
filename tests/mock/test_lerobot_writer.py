@@ -40,7 +40,7 @@ def mock_lerobot_dataset():
     ds = MagicMock()
     ds.add_frame = MagicMock()
     ds.save_episode = MagicMock()
-    ds.consolidate = MagicMock()
+    ds.finalize = MagicMock()
     ds.push_to_hub = MagicMock()
     return ds
 
@@ -54,11 +54,8 @@ def patch_lerobot_dataset(mock_lerobot_dataset):
         sys.modules,
         {
             "lerobot": MagicMock(),
-            "lerobot.common": MagicMock(),
-            "lerobot.common.datasets": MagicMock(),
-            "lerobot.common.datasets.lerobot_dataset": MagicMock(
-                LeRobotDataset=mock_cls
-            ),
+            "lerobot.datasets": MagicMock(),
+            "lerobot.datasets.lerobot_dataset": MagicMock(LeRobotDataset=mock_cls),
         },
     ):
         yield mock_lerobot_dataset, mock_cls
@@ -114,7 +111,9 @@ class TestConstructorValidation:
         call_kwargs = mock_cls.create.call_args.kwargs
         assert call_kwargs["features"]["state"]["shape"] == (6,)
 
-    def test_none_features_passed_as_none(self, patch_lerobot_dataset) -> None:
+    def test_none_features_normalized_to_empty_dict(
+        self, patch_lerobot_dataset
+    ) -> None:
         _, mock_cls = patch_lerobot_dataset
         from dexim.recorder.backends.lerobot_writer import LeRobotWriter
 
@@ -126,7 +125,70 @@ class TestConstructorValidation:
         )
 
         call_kwargs = mock_cls.create.call_args.kwargs
-        assert call_kwargs["features"] is None
+        assert call_kwargs["features"] == {}
+
+    def test_creates_dataset_when_path_missing(
+        self, patch_lerobot_dataset, tmp_path
+    ) -> None:
+        _, mock_cls = patch_lerobot_dataset
+        from dexim.recorder.backends.lerobot_writer import LeRobotWriter
+
+        new_path = str(tmp_path / "new_ds")  # does not exist on disk
+        LeRobotWriter(
+            dataset_path=new_path,
+            repo_id="org/ds",
+            features=None,
+            topic_to_feature={"obs/arm/joint_state": "state"},
+        )
+
+        mock_cls.create.assert_called_once()
+        mock_cls.assert_not_called()
+
+    def test_loads_dataset_when_path_exists(
+        self, patch_lerobot_dataset, tmp_path
+    ) -> None:
+        _, mock_cls = patch_lerobot_dataset
+        from dexim.recorder.backends.lerobot_writer import LeRobotWriter
+
+        # Populate the minimum files that _is_complete_dataset requires
+        (tmp_path / "meta").mkdir()
+        (tmp_path / "meta" / "info.json").write_text("{}")
+        (tmp_path / "meta" / "tasks.parquet").write_bytes(b"")
+        (tmp_path / "data" / "chunk-000").mkdir(parents=True)
+        (tmp_path / "data" / "chunk-000" / "file-000.parquet").write_bytes(b"")
+
+        LeRobotWriter(
+            dataset_path=str(tmp_path),
+            repo_id="org/ds",
+            features=None,
+            topic_to_feature={"obs/arm/joint_state": "state"},
+        )
+
+        mock_cls.assert_called_once()
+        mock_cls.create.assert_not_called()
+
+    def test_recreates_dataset_when_incomplete(
+        self, patch_lerobot_dataset, tmp_path
+    ) -> None:
+        _, mock_cls = patch_lerobot_dataset
+        from dexim.recorder.backends.lerobot_writer import LeRobotWriter
+
+        # Stub dataset with only info.json (no tasks.parquet, no data/)
+        (tmp_path / "meta").mkdir()
+        (tmp_path / "meta" / "info.json").write_text("{}")
+
+        LeRobotWriter(
+            dataset_path=str(tmp_path),
+            repo_id="org/ds",
+            features=None,
+            topic_to_feature={"obs/arm/joint_state": "state"},
+        )
+
+        # Incomplete dir was deleted → create() called, not the constructor
+        mock_cls.create.assert_called_once()
+        mock_cls.assert_not_called()
+        # Directory was removed
+        assert not tmp_path.exists()
 
 
 # ---------------------------------------------------------------------------
@@ -213,7 +275,7 @@ class TestWriteEpisode:
 
         writer.write_episode(_make_frames(3), _make_metadata())
 
-        mock_ds.save_episode.assert_called_once_with(task="pick_cup")
+        mock_ds.save_episode.assert_called_once_with()
 
     def test_empty_frames_skipped(self, patch_lerobot_dataset) -> None:
         mock_ds, _ = patch_lerobot_dataset
@@ -246,7 +308,7 @@ class TestClose:
         mock_ds, _ = patch_lerobot_dataset
         writer = self._make_writer(patch_lerobot_dataset)
         writer.close()
-        mock_ds.consolidate.assert_called_once()
+        mock_ds.finalize.assert_called_once()
 
     def test_push_to_hub_called_when_flag_true(self, patch_lerobot_dataset) -> None:
         mock_ds, _ = patch_lerobot_dataset
