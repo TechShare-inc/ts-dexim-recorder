@@ -1,16 +1,21 @@
 """Serialized episode writer queue.
 
-``EpisodeWriterQueue`` owns a single daemon thread that serializes calls to
-``align_episode_data`` and ``backend.write_episode``, replacing the unbounded
-per-episode thread spawning pattern in the legacy implementation.  This
-eliminates the risk of unbounded thread accumulation when episodes are
+``EpisodeWriterQueue`` owns a single background thread that serializes calls
+to ``align_episode_data`` and ``backend.write_episode``, replacing the
+unbounded per-episode thread spawning pattern in the legacy implementation.
+This eliminates the risk of unbounded thread accumulation when episodes are
 recorded in rapid succession.
+
+The thread is intentionally **non-daemon** so that Python's interpreter does
+not kill it mid-encode when the main thread exits.  Call :meth:`shutdown`
+before the process exits to drain the queue cleanly.
 """
 
 from __future__ import annotations
 
 import queue
 import threading
+import time
 from typing import Any
 
 from loguru import logger
@@ -52,12 +57,13 @@ class EpisodeWriterQueue:
         self._master_clock_topic = master_clock_topic
         self._continuous_topics: list[str] = list(continuous_topics or [])
         self._queue: queue.Queue[
-            tuple[dict[str, list[tuple[float, Any]]], EpisodeMetadata] | _ShutdownSentinel
+            tuple[dict[str, list[tuple[float, Any]]], EpisodeMetadata]
+            | _ShutdownSentinel
         ] = queue.Queue()
         self._thread = threading.Thread(
             target=self._worker,
             name="episode-writer",
-            daemon=True,
+            daemon=False,  # must NOT be daemon: Python must not kill it mid-encode
         )
         self._thread.start()
         logger.debug("EpisodeWriterQueue started")
@@ -83,19 +89,32 @@ class EpisodeWriterQueue:
         """Return the number of episodes currently waiting to be written."""
         return self._queue.qsize()
 
-    def shutdown(self, timeout: float = 30.0) -> None:
+    def shutdown(self, timeout: float = 120.0) -> None:
         """Drain the queue, process remaining episodes, then stop the thread.
+
+        The join loop absorbs ``KeyboardInterrupt`` so that a second Ctrl+C
+        cannot abort the drain and leave the dataset in an inconsistent state.
 
         Args:
             timeout: Maximum seconds to wait for the thread to finish after
-                the sentinel is enqueued.
+                the sentinel is enqueued.  Defaults to 120 s to accommodate
+                slow video encoding.
         """
         self._queue.put(_SHUTDOWN)
-        self._thread.join(timeout=timeout)
-        if self._thread.is_alive():
-            logger.warning(
-                "EpisodeWriterQueue.shutdown: timed out — worker thread still alive"
-            )
+        deadline = time.monotonic() + timeout
+        while self._thread.is_alive():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                logger.warning(
+                    "EpisodeWriterQueue.shutdown: timed out — worker thread still alive"
+                )
+                break
+            try:
+                self._thread.join(timeout=min(remaining, 2.0))
+            except KeyboardInterrupt:
+                logger.warning(
+                    "EpisodeWriterQueue.shutdown: Ctrl+C ignored — encoding still running, please wait"
+                )
         else:
             logger.debug("EpisodeWriterQueue shut down cleanly")
 
@@ -125,14 +144,18 @@ class EpisodeWriterQueue:
             metadata: Episode metadata snapshot.
         """
         try:
-            logger.info(f"Writing episode {metadata.episode_index} ({len(buffers)} topics)…")
+            logger.info(
+                f"Writing episode {metadata.episode_index} ({len(buffers)} topics)…"
+            )
             frames = align_episode_data(
                 buffers,
                 master_clock_topic=self._master_clock_topic,
                 continuous_topics=self._continuous_topics,
             )
             self._backend.write_episode(frames, metadata)
-            logger.success(f"Episode {metadata.episode_index} written ({len(frames)} frames)")
+            logger.success(
+                f"Episode {metadata.episode_index} written ({len(frames)} frames)"
+            )
         except Exception as exc:
             logger.error(
                 f"Episode {metadata.episode_index} write failed — {exc}",

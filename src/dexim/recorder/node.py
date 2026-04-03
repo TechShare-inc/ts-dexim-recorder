@@ -119,7 +119,7 @@ class DataRecorderNode(ManagedNode):
 
         # Task state — updated by SET_TASK command; snapshot at each START_REC.
         self._active_task = TaskInfo(task_id=config.default_task)
-        self._episode_task = TaskInfo()       # snapshot taken at START_REC
+        self._episode_task = TaskInfo()  # snapshot taken at START_REC
         self._episode_start_time: float = 0.0
 
         # Data-plane SUB sockets (one per endpoint, all on shared _poller).
@@ -259,7 +259,7 @@ class DataRecorderNode(ManagedNode):
             task_description=self._episode_task.task_description,
             start_time=self._episode_start_time,
             end_time=end_time,
-            num_frames=0,   # populated post-alignment by the writer thread
+            num_frames=0,  # populated post-alignment by the writer thread
             num_topics=len(episode_buffers),
             topics=list(episode_buffers.keys()),
         )
@@ -302,13 +302,20 @@ class DataRecorderNode(ManagedNode):
         )
 
     def on_shutdown(self) -> None:
-        """Drain the writer queue and finalize the storage backend."""
+        """Drain the writer queue and finalize the storage backend.
+
+        ``backend.close()`` is called in a ``finally`` block so that
+        ``dataset.finalize()`` (Parquet footer + stats) is always written even
+        if the queue drain is interrupted or times out.
+        """
         logger.info(f"{self.node_id}: shutting down — draining writer queue…")
-        self._writer_queue.shutdown(timeout=60.0)
         try:
-            self._backend.close()
-        except Exception as exc:
-            logger.error(f"{self.node_id}: backend.close() failed — {exc}")
+            self._writer_queue.shutdown(timeout=120.0)
+        finally:
+            try:
+                self._backend.close()
+            except Exception as exc:
+                logger.error(f"{self.node_id}: backend.close() failed — {exc}")
 
     # ------------------------------------------------------------------
     # Diagnostics / heartbeat

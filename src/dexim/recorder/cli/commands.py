@@ -133,8 +133,13 @@ def run(
         node = DataRecorderNode(config=cfg)
         console.print("[success]● Recorder node is running. Press Ctrl+C to stop.[/]")
         node.run()
+        console.print("[success]Recorder stopped.[/]")
     except KeyboardInterrupt:
-        console.print("\n[warning]Stopping.[/]")
+        console.print(
+            "\n[warning]Stopping — waiting for encoding to complete. "
+            "Please do not press Ctrl+C again.[/]"
+        )
+        console.print("[success]Recorder stopped.[/]")
 
 
 # ── status ────────────────────────────────────────────────────────────────────
@@ -343,9 +348,7 @@ def config_new(
     """Create a new named recorder configuration file."""
     console = get_console()
     if not endpoints:
-        raise click.UsageError(
-            "Provide at least one --endpoint/-e for the new config."
-        )
+        raise click.UsageError("Provide at least one --endpoint/-e for the new config.")
     data: dict = {"data_endpoints": list(endpoints)}
     if storage_format is not None:
         data["storage_format"] = storage_format
