@@ -8,7 +8,7 @@ Exposes:
 __version__ = "0.1.0"
 
 import rich_click as click
-from dexim.cli.common import print_banner, setup_error_handling
+from dexim.cli.common import configure_logging, print_banner, setup_error_handling
 
 from .commands import config_group, run, status
 
@@ -17,8 +17,19 @@ click.rich_click.STYLE_COMMANDS_TABLE_COLUMN_WIDTH_RATIO = (1, 3)
 
 
 @click.group(name="recorder")
-def recorder_group() -> None:
+@click.option(
+    "--log-level",
+    type=click.Choice(
+        ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False
+    ),
+    default="INFO",
+    show_default=True,
+    envvar="DEXIM_LOG_LEVEL",
+    help="Logging verbosity.",
+)
+def recorder_group(log_level: str) -> None:
     """Data recorder — run, status, config."""
+    configure_logging(log_level)
 
 
 recorder_group.add_command(run)
