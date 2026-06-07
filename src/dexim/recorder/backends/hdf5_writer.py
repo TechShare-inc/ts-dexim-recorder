@@ -1,8 +1,8 @@
-"""HDF5 storage backend — one file per episode.
+"""HDF5 storage backend -- one file per episode.
 
 File naming: ``episode_NNNN.h5`` (zero-padded to 4 digits).
 
-Topic → dtype mapping uses pattern matching on the topic string so the
+Topic -> dtype mapping uses pattern matching on the topic string so the
 recorder stays format-agnostic.  Override individual topics via
 ``topic_dtypes`` in the config.
 """
@@ -22,7 +22,7 @@ from dexim.recorder.metadata import EpisodeMetadata
 
 __all__ = ["HDF5Writer"]
 
-# Pattern → (numpy dtype string, optional float→int scale factor).
+# Pattern -> (numpy dtype string, optional float->int scale factor).
 # Applied in order; first match wins.
 _DEFAULT_DTYPE_PATTERNS: list[tuple[re.Pattern[str], str, float | None]] = [
     # Video frames: observation/<id>/video_frame  OR  legacy obs_image_*
@@ -70,7 +70,7 @@ class HDF5Writer(StorageBackend):
         """
         if not frames:
             logger.warning(
-                f"Episode {metadata.episode_index}: no frames to write — skipped"
+                f"Episode {metadata.episode_index}: no frames to write -- skipped"
             )
             return
 
@@ -99,7 +99,7 @@ class HDF5Writer(StorageBackend):
                 self._write_topic_dataset(hf, topic, column)
 
         logger.info(
-            f"Episode {metadata.episode_index} → {filepath} ({len(frames)} frames)"
+            f"Episode {metadata.episode_index} -> {filepath} ({len(frames)} frames)"
         )
 
     def close(self) -> None:
@@ -124,13 +124,13 @@ class HDF5Writer(StorageBackend):
         """
         valid = [v for v in column if v is not None]
         if not valid:
-            logger.debug(f"  topic={topic!r}: all frames None — skipped")
+            logger.debug(f"  topic={topic!r}: all frames None -- skipped")
             return
 
         try:
             arr = np.stack([np.asarray(v) for v in valid])
         except (ValueError, TypeError) as exc:
-            logger.warning(f"  topic={topic!r}: cannot stack values — {exc}")
+            logger.warning(f"  topic={topic!r}: cannot stack values -- {exc}")
             return
 
         dtype_str, scale = self._resolve_dtype(topic)
@@ -146,7 +146,7 @@ class HDF5Writer(StorageBackend):
         )
 
     def _resolve_dtype(self, topic: str) -> tuple[str, float | None]:
-        """Return the numpy dtype and optional float→int scale for a topic.
+        """Return the numpy dtype and optional float->int scale for a topic.
 
         Checks ``topic_dtypes`` overrides first, then pattern-matches.
 

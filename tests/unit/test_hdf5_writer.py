@@ -145,7 +145,7 @@ class TestWriteEpisode:
         writer = HDF5Writer(output_dir=str(tmp_path))
         writer.write_episode(_make_frames(3), _make_metadata())
         with h5py.File(tmp_path / "episode_0000.h5", "r") as f:
-            # 3 frames × 6 joints
+            # 3 frames x 6 joints
             assert f["obs/arm/joint_state"].shape == (3, 6)
 
 

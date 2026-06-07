@@ -1,4 +1,4 @@
-"""End-to-end integration test: DataRecorderNode → EpisodeWriterQueue → HDF5Writer.
+"""End-to-end integration test: DataRecorderNode -> EpisodeWriterQueue -> HDF5Writer.
 
 Uses real EpisodeWriterQueue and HDF5Writer (no mock for I/O), but patches
 ManagedNode.__init__ to skip ZMQ setup so no ports are bound.

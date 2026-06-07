@@ -29,7 +29,7 @@ class StorageBackend(abc.ABC):
 
         Args:
             frames: List of aligned frame dicts.  Each dict maps topic string
-                → data value, plus a ``"timestamp"`` key (float).
+                -> data value, plus a ``"timestamp"`` key (float).
             metadata: Episode metadata snapshot (index, task, timing, topics).
         """
 

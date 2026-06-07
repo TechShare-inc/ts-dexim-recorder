@@ -1,4 +1,4 @@
-"""DataRecorderNode — multi-stream episode recorder.
+"""DataRecorderNode -- multi-stream episode recorder.
 
 Extends ``ManagedNode`` directly (no RecorderNode intermediary) and owns
 all ZMQ subscription, buffering, and episode lifecycle responsibilities.
@@ -6,18 +6,18 @@ all ZMQ subscription, buffering, and episode lifecycle responsibilities.
 Data-flow pipeline::
 
     ZMQ PUB endpoints
-        │  (one SUB socket per endpoint, all on shared Poller)
-        ▼
+        |  (one SUB socket per endpoint, all on shared Poller)
+        v
     _handle_data_message()
-        │  is_recording → buffer (topic → [(timestamp, data)])
-        │  not recording → drain and discard
-        ▼
+        |  is_recording -> buffer (topic -> [(timestamp, data)])
+        |  not recording -> drain and discard
+        v
     on_stop_recording()
-        │  deep-copy buffers → submit to EpisodeWriterQueue
-        ▼
+        |  deep-copy buffers -> submit to EpisodeWriterQueue
+        v
     EpisodeWriterQueue (single daemon thread)
-        │  align_episode_data() → backend.write_episode()
-        ▼
+        |  align_episode_data() -> backend.write_episode()
+        v
     HDF5Writer / LeRobotWriter
 """
 
@@ -102,7 +102,7 @@ class DataRecorderNode(ManagedNode):
         )
         self._config = config
 
-        # Storage backend — validated before sockets are opened.
+        # Storage backend -- validated before sockets are opened.
         self._backend: StorageBackend = _build_backend(config)
 
         # Single-thread writer queue (fixes unbounded thread spawning bug).
@@ -117,7 +117,7 @@ class DataRecorderNode(ManagedNode):
         self._buffers: dict[str, list[tuple[float, Any]]] = defaultdict(list)
         self._buffer_lock = threading.Lock()
 
-        # Task state — updated by SET_TASK command; snapshot at each START_REC.
+        # Task state -- updated by SET_TASK command; snapshot at each START_REC.
         self._active_task = TaskInfo(task_id=config.default_task)
         self._episode_task = TaskInfo()  # snapshot taken at START_REC
         self._episode_start_time: float = 0.0
@@ -127,7 +127,7 @@ class DataRecorderNode(ManagedNode):
         self._initialize_data_sockets()
 
         logger.success(
-            f"DataRecorderNode ready — "
+            f"DataRecorderNode ready -- "
             f"format={config.storage_format!r}, "
             f"endpoints={config.data_endpoints}"
         )
@@ -217,13 +217,13 @@ class DataRecorderNode(ManagedNode):
         """Enter STANDBY: clear buffers for a fresh recording session."""
         with self._buffer_lock:
             self._buffers.clear()
-        logger.info(f"{self.node_id}: standby — buffers cleared")
+        logger.info(f"{self.node_id}: standby -- buffers cleared")
 
     def on_start(self) -> None:
         """Clear buffers when the node enters active operation."""
         with self._buffer_lock:
             self._buffers.clear()
-        logger.info(f"{self.node_id}: started — buffers cleared")
+        logger.info(f"{self.node_id}: started -- buffers cleared")
 
     def on_pause(self) -> None:
         """Hold current state on pause."""
@@ -243,7 +243,7 @@ class DataRecorderNode(ManagedNode):
         with self._buffer_lock:
             self._buffers.clear()
         logger.info(
-            f"{self.node_id}: recording started — "
+            f"{self.node_id}: recording started -- "
             f"task={self._episode_task.task_id!r}, buffers cleared"
         )
 
@@ -277,13 +277,13 @@ class DataRecorderNode(ManagedNode):
         self._writer_queue.submit(buffers=episode_buffers, metadata=metadata)
 
     def on_discard_recording(self) -> None:
-        """Discard the current episode — clear buffers without writing."""
+        """Discard the current episode -- clear buffers without writing."""
         with self._buffer_lock:
             discarded_topics = list(self._buffers.keys())
             discarded_frames = sum(len(v) for v in self._buffers.values())
             self._buffers.clear()
         logger.info(
-            f"{self.node_id}: episode discarded — "
+            f"{self.node_id}: episode discarded -- "
             f"{len(discarded_topics)} topics, ~{discarded_frames} frames dropped "
             f"(counter stays at {self._episode_counter})"
         )
@@ -302,7 +302,7 @@ class DataRecorderNode(ManagedNode):
             task_description=task_info.get("task_description", ""),
         )
         logger.info(
-            f"{self.node_id}: active task updated — "
+            f"{self.node_id}: active task updated -- "
             f"id={self._active_task.task_id!r}, "
             f"desc={self._active_task.task_description!r}"
         )
@@ -314,14 +314,14 @@ class DataRecorderNode(ManagedNode):
         ``dataset.finalize()`` (Parquet footer + stats) is always written even
         if the queue drain is interrupted or times out.
         """
-        logger.info(f"{self.node_id}: shutting down — draining writer queue…")
+        logger.info(f"{self.node_id}: shutting down -- draining writer queue...")
         try:
             self._writer_queue.shutdown(timeout=120.0)
         finally:
             try:
                 self._backend.close()
             except Exception as exc:
-                logger.error(f"{self.node_id}: backend.close() failed — {exc}")
+                logger.error(f"{self.node_id}: backend.close() failed -- {exc}")
 
     # ------------------------------------------------------------------
     # Diagnostics / heartbeat

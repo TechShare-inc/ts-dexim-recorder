@@ -192,7 +192,7 @@ class TestQsize:
                 q.submit(buffers=_make_buffers(), metadata=_make_metadata(index=i))
 
             processing.wait(timeout=5.0)
-            # 4 submitted, 1 being processed → at most 3 remaining in queue
+            # 4 submitted, 1 being processed -> at most 3 remaining in queue
             assert q.qsize() <= 3
             unblock.set()
             q.shutdown(timeout=5.0)

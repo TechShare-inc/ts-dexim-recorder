@@ -40,5 +40,5 @@ recorder_group.add_command(config_group, name="config")
 def standalone_app() -> None:
     """Entry point for the standalone ``dexim-recorder`` CLI."""
     setup_error_handling()
-    print_banner(app_name="DexImitate · Recorder", version=__version__)
+    print_banner(app_name="DexImitate - Recorder", version=__version__)
     recorder_group(standalone_mode=True)

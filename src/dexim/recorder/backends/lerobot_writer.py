@@ -4,7 +4,7 @@ Appends episodes to a persistent ``LeRobotDataset`` (Parquet + video).
 All dataset operations are guarded by a ``threading.Lock`` to be safe
 against future API changes that might call the backend concurrently.
 
-Topic → LeRobot feature name mapping is the sole supported path
+Topic -> LeRobot feature name mapping is the sole supported path
 (``topic_to_feature`` config dict).  The legacy alphabetic-concatenation
 path from the old ``data-recorder-node`` is intentionally not ported.
 """
@@ -72,7 +72,7 @@ class LeRobotWriter(StorageBackend):
         self._push_to_hub = push_to_hub
         self._lock = threading.Lock()
 
-        # Normalise list shapes → tuples for the LeRobot API
+        # Normalise list shapes -> tuples for the LeRobot API
         processed_features: dict[str, Any] = {}
         for k, v in (features or {}).items():
             if isinstance(v, dict) and isinstance(v.get("shape"), list):
@@ -83,7 +83,7 @@ class LeRobotWriter(StorageBackend):
         root = Path(dataset_path)
         if root.exists() and not self._is_complete_dataset(root):
             logger.warning(
-                f"LeRobotWriter: incomplete dataset found at {dataset_path!r} — removing and recreating"
+                f"LeRobotWriter: incomplete dataset found at {dataset_path!r} -- removing and recreating"
             )
             shutil.rmtree(root)
 
@@ -125,7 +125,7 @@ class LeRobotWriter(StorageBackend):
         """
         if not frames:
             logger.warning(
-                f"Episode {metadata.episode_index}: no frames to write — skipped"
+                f"Episode {metadata.episode_index}: no frames to write -- skipped"
             )
             return
 
@@ -143,7 +143,7 @@ class LeRobotWriter(StorageBackend):
                 )
             except Exception as exc:
                 logger.error(
-                    f"LeRobotWriter: episode {metadata.episode_index} failed — {exc}",
+                    f"LeRobotWriter: episode {metadata.episode_index} failed -- {exc}",
                     exc_info=True,
                 )
                 raise
@@ -155,14 +155,14 @@ class LeRobotWriter(StorageBackend):
                 self._dataset.finalize()
                 logger.info("LeRobotDataset finalized")
             except Exception as exc:
-                logger.error(f"LeRobotWriter.close: finalize failed — {exc}")
+                logger.error(f"LeRobotWriter.close: finalize failed -- {exc}")
 
             if self._push_to_hub:
                 try:
                     self._dataset.push_to_hub()
                     logger.success("LeRobotDataset pushed to Hub")
                 except Exception as exc:
-                    logger.error(f"LeRobotWriter.close: push_to_hub failed — {exc}")
+                    logger.error(f"LeRobotWriter.close: push_to_hub failed -- {exc}")
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -191,7 +191,7 @@ class LeRobotWriter(StorageBackend):
         are decoded to PIL Images before being handed to LeRobot.
 
         Args:
-            frame: Aligned frame dict (topic → data, plus ``"timestamp"``).
+            frame: Aligned frame dict (topic -> data, plus ``"timestamp"``).
 
         Returns:
             Dict keyed by LeRobot feature names.
@@ -213,7 +213,7 @@ class LeRobotWriter(StorageBackend):
         image features, so we decode here.
 
         Args:
-            value: Buffered value — either a raw data dict or a scalar/array.
+            value: Buffered value -- either a raw data dict or a scalar/array.
 
         Returns:
             PIL RGB image when the value is a ``FrameObservation`` dict;

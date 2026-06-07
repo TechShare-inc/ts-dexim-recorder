@@ -117,7 +117,7 @@ class TestLoadConfig:
         cfg_file = tmp_path / "empty.yaml"
         cfg_file.write_text("")
 
-        # Empty file → empty dict → missing data_endpoints → empty list error
+        # Empty file -> empty dict -> missing data_endpoints -> empty list error
         with pytest.raises((ValueError, TypeError)):
             load_config(str(cfg_file))
 

@@ -79,7 +79,7 @@ class EpisodeWriterQueue:
         background thread.
 
         Args:
-            buffers: Deep copy of the episode data buffers (topic → samples).
+            buffers: Deep copy of the episode data buffers (topic -> samples).
             metadata: Episode metadata snapshot.
         """
         self._queue.put((buffers, metadata))
@@ -106,14 +106,14 @@ class EpisodeWriterQueue:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 logger.warning(
-                    "EpisodeWriterQueue.shutdown: timed out — worker thread still alive"
+                    "EpisodeWriterQueue.shutdown: timed out -- worker thread still alive"
                 )
                 break
             try:
                 self._thread.join(timeout=min(remaining, 2.0))
             except KeyboardInterrupt:
                 logger.warning(
-                    "EpisodeWriterQueue.shutdown: Ctrl+C ignored — encoding still running, please wait"
+                    "EpisodeWriterQueue.shutdown: Ctrl+C ignored -- encoding still running, please wait"
                 )
         else:
             logger.debug("EpisodeWriterQueue shut down cleanly")
@@ -145,7 +145,7 @@ class EpisodeWriterQueue:
         """
         try:
             logger.info(
-                f"Writing episode {metadata.episode_index} ({len(buffers)} topics)…"
+                f"Writing episode {metadata.episode_index} ({len(buffers)} topics)..."
             )
             frames = align_episode_data(
                 buffers,
@@ -158,6 +158,6 @@ class EpisodeWriterQueue:
             )
         except Exception as exc:
             logger.error(
-                f"Episode {metadata.episode_index} write failed — {exc}",
+                f"Episode {metadata.episode_index} write failed -- {exc}",
                 exc_info=True,
             )

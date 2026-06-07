@@ -24,7 +24,7 @@ def _path_value(p: Path | None) -> str | None:
     return str(p) if p is not None else None
 
 
-# ── run ───────────────────────────────────────────────────────────────────────
+# -- run -----------------------------------------------------------------------
 
 
 @click.command()
@@ -120,7 +120,7 @@ def run(
         )
 
     console.print(
-        f"[info]Starting recorder in [key]{cfg.storage_format}[/key] mode…[/]"
+        f"[info]Starting recorder in [key]{cfg.storage_format}[/key] mode...[/]"
     )
     console.print(f"  Node ID:    [key]{cfg.node_id}[/key]")
     console.print(f"  Format:     [key]{cfg.storage_format}[/key]")
@@ -131,18 +131,18 @@ def run(
 
     try:
         node = DataRecorderNode(config=cfg)
-        console.print("[success]● Recorder node is running. Press Ctrl+C to stop.[/]")
+        console.print("[success]* Recorder node is running. Press Ctrl+C to stop.[/]")
         node.run()
         console.print("[success]Recorder stopped.[/]")
     except KeyboardInterrupt:
         console.print(
-            "\n[warning]Stopping — waiting for encoding to complete. "
+            "\n[warning]Stopping -- waiting for encoding to complete. "
             "Please do not press Ctrl+C again.[/]"
         )
         console.print("[success]Recorder stopped.[/]")
 
 
-# ── status ────────────────────────────────────────────────────────────────────
+# -- status --------------------------------------------------------------------
 
 
 @click.command()
@@ -186,7 +186,7 @@ def status(output_dir: str, storage_format: str) -> None:
             "%Y-%m-%d %H:%M:%S"
         )
     else:
-        last_modified = "—"
+        last_modified = "--"
 
     render_output_status(
         episode_count=episode_count,
@@ -198,7 +198,7 @@ def status(output_dir: str, storage_format: str) -> None:
     )
 
 
-# ── config group ──────────────────────────────────────────────────────────────
+# -- config group --------------------------------------------------------------
 
 
 @click.group(name="config")
@@ -252,7 +252,7 @@ def config_validate(config_name: str, config_dir: Path | None) -> None:
 
     resolved = resolve_config_path(config_name, _path_value(config_dir))
     load_config(str(resolved))
-    console.print(f"[success]✓ Config is valid:[/] {resolved}")
+    console.print(f"[success][OK] Config is valid:[/] {resolved}")
 
 
 @config_group.command(name="list")

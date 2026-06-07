@@ -49,14 +49,14 @@ def align_episode_data(
 
     Returns:
         List of dicts, one per master-clock frame.  Each dict maps topic
-        string → aligned data value, plus a ``"timestamp"`` key (float).
+        string -> aligned data value, plus a ``"timestamp"`` key (float).
 
     Raises:
         ValueError: When ``buffers`` is empty or the master clock stream
             has no samples.
     """
     if not buffers:
-        raise ValueError("buffers is empty — no data to align")
+        raise ValueError("buffers is empty -- no data to align")
 
     _continuous: set[str] = set(continuous_topics or [])
 

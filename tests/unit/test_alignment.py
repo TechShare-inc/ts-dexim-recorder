@@ -62,7 +62,7 @@ class TestMasterClockSelection:
         }
         # video_frame has fewer samples but should still be master
         frames = align_episode_data(buffers)
-        # Master is video_frame → 3 frames
+        # Master is video_frame -> 3 frames
         assert len(frames) == 3
         assert frames[0]["timestamp"] == pytest.approx(1.0)
 
@@ -71,7 +71,7 @@ class TestMasterClockSelection:
             "topicA": _buf([1.0, 2.0]),
             "topicB": _buf([1.0, 1.5, 2.0, 2.5]),
         }
-        # topicB has more samples → selected as master
+        # topicB has more samples -> selected as master
         frames = align_episode_data(buffers)
         assert len(frames) == 4
 
@@ -89,11 +89,11 @@ class TestNearestNeighbour:
             {"master": master, "discrete": discrete},
             master_clock_topic="master",
         )
-        # At t=1.0: closest is 0.9 → index 0
+        # At t=1.0: closest is 0.9 -> index 0
         assert frames[0]["discrete"] == 0
-        # At t=2.0: closest is 1.6 (dist 0.4) vs 2.7 (dist 0.7) → index 1
+        # At t=2.0: closest is 1.6 (dist 0.4) vs 2.7 (dist 0.7) -> index 1
         assert frames[1]["discrete"] == 1
-        # At t=3.0: closest is 2.7 (dist 0.3) vs 1.6 (dist 1.4) → index 2
+        # At t=3.0: closest is 2.7 (dist 0.3) vs 1.6 (dist 1.4) -> index 2
         assert frames[2]["discrete"] == 2
 
     def test_empty_discrete_topic_yields_none(self):
@@ -117,11 +117,11 @@ class TestLinearInterpolation:
         joint = _buf([0.0, 2.0], values=[[0.0, 0.0, 0.0], [2.0, 2.0, 2.0]])
         buffers = {"master": master, "obs/arm/joint_state": joint}
         frames = align_episode_data(buffers, master_clock_topic="master")
-        # t=0 → exactly first sample
+        # t=0 -> exactly first sample
         assert frames[0]["obs/arm/joint_state"] == pytest.approx([0.0, 0.0, 0.0])
-        # t=1 → midpoint between [0,0,0] and [2,2,2]
+        # t=1 -> midpoint between [0,0,0] and [2,2,2]
         assert frames[1]["obs/arm/joint_state"] == pytest.approx([1.0, 1.0, 1.0])
-        # t=2 → exactly last sample
+        # t=2 -> exactly last sample
         assert frames[2]["obs/arm/joint_state"] == pytest.approx([2.0, 2.0, 2.0])
 
     def test_explicit_continuous_topic_interpolated(self):
@@ -142,7 +142,7 @@ class TestLinearInterpolation:
         joint = _buf([1.0, 2.0], values=[100.0, 200.0])
         buffers = {"master": master, "obs/arm/joint_state": joint}
         frames = align_episode_data(buffers, master_clock_topic="master")
-        # t=0 is before joint timestamps [1.0, 2.0] → clamped to first
+        # t=0 is before joint timestamps [1.0, 2.0] -> clamped to first
         assert frames[0]["obs/arm/joint_state"] == pytest.approx(100.0)
 
     def test_interpolation_clamps_above_range(self):
@@ -150,7 +150,7 @@ class TestLinearInterpolation:
         joint = _buf([1.0, 2.0], values=[100.0, 200.0])
         buffers = {"master": master, "obs/arm/joint_state": joint}
         frames = align_episode_data(buffers, master_clock_topic="master")
-        # t=5 is after joint timestamps → clamped to last
+        # t=5 is after joint timestamps -> clamped to last
         assert frames[0]["obs/arm/joint_state"] == pytest.approx(200.0)
 
 

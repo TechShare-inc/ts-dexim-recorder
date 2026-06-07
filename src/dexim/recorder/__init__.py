@@ -1,4 +1,4 @@
-"""dexim-recorder — multi-stream episode data collection for imitation learning.
+"""dexim-recorder -- multi-stream episode data collection for imitation learning.
 
 Supports HDF5 and LeRobot v3 storage backends with temporal alignment across
 N ZMQ data streams.

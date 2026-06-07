@@ -1,4 +1,4 @@
-"""Mock tests for LeRobotWriter — LeRobotDataset is fully mocked."""
+"""Mock tests for LeRobotWriter -- LeRobotDataset is fully mocked."""
 
 from __future__ import annotations
 
@@ -184,7 +184,7 @@ class TestConstructorValidation:
             topic_to_feature={"obs/arm/joint_state": "state"},
         )
 
-        # Incomplete dir was deleted → create() called, not the constructor
+        # Incomplete dir was deleted -> create() called, not the constructor
         mock_cls.create.assert_called_once()
         mock_cls.assert_not_called()
         # Directory was removed
