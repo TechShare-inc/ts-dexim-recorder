@@ -95,12 +95,12 @@ class DataRecorderNode(ManagedNode):
         Args:
             config: ``RecorderNodeConfig`` instance (validated in __post_init__).
         """
+        self._config = config
         super().__init__(
             node_id=config.node_id,
             control_endpoint=config.control_endpoint,
             status_endpoint=config.status_endpoint,
         )
-        self._config = config
 
         # Storage backend -- validated before sockets are opened.
         self._backend: StorageBackend = _build_backend(config)
@@ -330,12 +330,17 @@ class DataRecorderNode(ManagedNode):
     def get_status_info(self) -> StatusInfo:
         """Return a snapshot of recorder-specific runtime state."""
         info = super().get_status_info()
-        with self._buffer_lock:
-            info.buffer_topics = len(self._buffers)
-            info.buffer_frames = sum(len(v) for v in self._buffers.values())
-        info.episode_counter = self._episode_counter
-        info.active_task = self._active_task.task_id
-        info.writer_queue_depth = self._writer_queue.qsize()
+        # Guard against access during __init__ before subclass attrs are set.
+        if hasattr(self, "_buffer_lock") and hasattr(self, "_buffers"):
+            with self._buffer_lock:
+                info.buffer_topics = len(self._buffers)
+                info.buffer_frames = sum(len(v) for v in self._buffers.values())
+        if hasattr(self, "_episode_counter"):
+            info.episode_counter = self._episode_counter
+        if hasattr(self, "_active_task"):
+            info.active_task = self._active_task.task_id
+        if hasattr(self, "_writer_queue"):
+            info.writer_queue_depth = self._writer_queue.qsize()
         return info
 
     def get_buffer_stats(self) -> dict[str, int]:
