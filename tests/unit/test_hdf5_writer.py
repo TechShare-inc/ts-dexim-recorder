@@ -68,7 +68,9 @@ class TestResolveDtype:
 
     def test_video_frame_is_uint8(self, tmp_path: Path) -> None:
         frames_data = [np.ones((4, 4, 3), dtype=np.float32) * 0.5] * 2
-        with self._write_and_open(tmp_path, "observation/cam/video_frame", frames_data) as f:
+        with self._write_and_open(
+            tmp_path, "observation/cam/video_frame", frames_data
+        ) as f:
             assert f["observation/cam/video_frame"].dtype == np.uint8
 
     def test_depth_is_uint16(self, tmp_path: Path) -> None:

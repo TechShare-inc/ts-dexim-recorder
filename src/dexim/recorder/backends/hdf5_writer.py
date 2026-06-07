@@ -69,7 +69,9 @@ class HDF5Writer(StorageBackend):
             metadata: Episode metadata snapshot (index, task, timing, topics).
         """
         if not frames:
-            logger.warning(f"Episode {metadata.episode_index}: no frames to write — skipped")
+            logger.warning(
+                f"Episode {metadata.episode_index}: no frames to write — skipped"
+            )
             return
 
         filepath = self._output_dir / f"episode_{metadata.episode_index:04d}.h5"
@@ -96,7 +98,9 @@ class HDF5Writer(StorageBackend):
                 column = [f.get(topic) for f in frames]
                 self._write_topic_dataset(hf, topic, column)
 
-        logger.info(f"Episode {metadata.episode_index} → {filepath} ({len(frames)} frames)")
+        logger.info(
+            f"Episode {metadata.episode_index} → {filepath} ({len(frames)} frames)"
+        )
 
     def close(self) -> None:
         """No-op: each episode is an independent file."""

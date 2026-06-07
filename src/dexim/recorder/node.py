@@ -30,7 +30,7 @@ from collections import defaultdict
 from typing import Any
 
 import zmq
-from dexim.core.messages import STATUS_HEALTHY, unpack_data_message
+from dexim.core.messages import StatusInfo, unpack_data_message
 from dexim.core.nodes.managed import ManagedNode
 from loguru import logger
 
@@ -327,25 +327,16 @@ class DataRecorderNode(ManagedNode):
     # Diagnostics / heartbeat
     # ------------------------------------------------------------------
 
-    def send_heartbeat_if_needed(self) -> None:
-        """Override to inject recorder-specific info into every heartbeat."""
-        now = time.time()
-        if now - self._last_heartbeat_ts >= self.heartbeat_interval:
-            self.report_status(STATUS_HEALTHY, info=self._recorder_status_info())
-            self._last_heartbeat_ts = now
-
-    def _recorder_status_info(self) -> dict[str, Any]:
+    def get_status_info(self) -> StatusInfo:
+        """Return a snapshot of recorder-specific runtime state."""
+        info = super().get_status_info()
         with self._buffer_lock:
-            buf_topics = len(self._buffers)
-            buf_frames = sum(len(v) for v in self._buffers.values())
-        return {
-            "is_recording": self.is_recording,
-            "episode_counter": self._episode_counter,
-            "active_task": self._active_task.task_id,
-            "buffer_topics": buf_topics,
-            "buffer_frames": buf_frames,
-            "writer_queue_depth": self._writer_queue.qsize(),
-        }
+            info.buffer_topics = len(self._buffers)
+            info.buffer_frames = sum(len(v) for v in self._buffers.values())
+        info.episode_counter = self._episode_counter
+        info.active_task = self._active_task.task_id
+        info.writer_queue_depth = self._writer_queue.qsize()
+        return info
 
     def get_buffer_stats(self) -> dict[str, int]:
         """Return per-topic sample counts in the current buffer.
