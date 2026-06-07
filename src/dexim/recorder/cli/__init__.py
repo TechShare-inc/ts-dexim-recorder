@@ -1,4 +1,4 @@
-"""dexim.recorder.cli — Data recorder CLI command group.
+"""dexim.recorder.cli - Data recorder CLI command group.
 
 Exposes:
     recorder_group: Click group usable standalone or mounted by the umbrella.
@@ -28,7 +28,7 @@ click.rich_click.STYLE_COMMANDS_TABLE_COLUMN_WIDTH_RATIO = (1, 3)
     help="Logging verbosity.",
 )
 def recorder_group(log_level: str) -> None:
-    """Data recorder — run, status, config."""
+    """Data recorder - run, status, config."""
     configure_logging(log_level)
 
 
