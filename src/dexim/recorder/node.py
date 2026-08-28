@@ -213,6 +213,12 @@ class DataRecorderNode(ManagedNode):
     # ManagedNode lifecycle hooks
     # ------------------------------------------------------------------
 
+    def on_standby(self) -> None:
+        """Enter standby and clear buffers for a fresh recording session."""
+        with self._buffer_lock:
+            self._buffers.clear()
+        logger.info(f"{self.node_id}: entering standby -- buffers cleared")
+
     def on_start(self) -> None:
         """Clear buffers when the node enters active operation."""
         with self._buffer_lock:

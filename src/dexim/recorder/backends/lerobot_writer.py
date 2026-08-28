@@ -12,11 +12,11 @@ path from the old ``data-recorder-node`` is intentionally not ported.
 from __future__ import annotations
 
 import io
-import shutil
 import threading
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 from loguru import logger
 
 from dexim.recorder.backends.base import StorageBackend
@@ -82,10 +82,10 @@ class LeRobotWriter(StorageBackend):
 
         root = Path(dataset_path)
         if root.exists() and not self._is_complete_dataset(root):
-            logger.warning(
-                f"LeRobotWriter: incomplete dataset found at {dataset_path!r} — removing and recreating"
+            raise RuntimeError(
+                f"Incomplete Lerobot dataset found at {root}. "
+                "Move or recover it before starting a new recording."
             )
-            shutil.rmtree(root)
 
         if root.exists():
             self._dataset = LeRobotDataset(
@@ -200,7 +200,10 @@ class LeRobotWriter(StorageBackend):
         for topic, feature_name in self._topic_to_feature.items():
             value = frame.get(topic)
             if value is not None:
-                mapped[feature_name] = self._coerce_image(value)
+                mapped[feature_name] = self._coerce_feature_value(
+                    feature_name,
+                    value
+                )
         return mapped
 
     @staticmethod
@@ -225,3 +228,18 @@ class LeRobotWriter(StorageBackend):
 
         color_bytes: bytes = value["color"]
         return Image.open(io.BytesIO(color_bytes)).convert("RGB")
+
+    @staticmethod
+    def _coerce_feature_value(feature_name: str, value: Any) -> Any:
+        if isinstance(value, dict) and "color" in value:
+            return LeRobotWriter._coerce_image(value)
+
+        if isinstance(value, dict) and "q" in value:
+            value = value["q"]
+
+        if feature_name == "action" or feature_name.startswith(
+            ("action.", "observation.state")
+        ):
+            return np.asarray(value, dtype=np.float32)
+
+        return value
