@@ -41,13 +41,14 @@ class LeRobotWriter(StorageBackend):
     Raises:
         ImportError: When ``lerobot`` is not installed.
         ValueError: When ``topic_to_feature`` is empty.
+        RuntimeError: When ``dataset_path`` contains an incomplete dataset.
     """
 
     def __init__(
         self,
         dataset_path: str,
         repo_id: str,
-        features: dict[str, Any],
+        features: dict[str, Any] | None,
         topic_to_feature: dict[str, str],
         fps: int = 30,
         push_to_hub: bool = False,
@@ -83,7 +84,7 @@ class LeRobotWriter(StorageBackend):
         root = Path(dataset_path)
         if root.exists() and not self._is_complete_dataset(root):
             raise RuntimeError(
-                f"Incomplete Lerobot dataset found at {root}. "
+                f"Incomplete LeRobot dataset found at {root}. "
                 "Move or recover it before starting a new recording."
             )
 
@@ -93,11 +94,13 @@ class LeRobotWriter(StorageBackend):
                 root=dataset_path,
                 tolerance_s=1e-4,
             )
+            self._features: dict[str, Any] = dict(self._dataset.features)
             logger.info(
                 f"LeRobotWriter: loaded existing dataset at {dataset_path!r} "
                 f"(repo_id={repo_id!r})"
             )
         else:
+            self._features = processed_features
             self._dataset = LeRobotDataset.create(
                 repo_id=repo_id,
                 fps=fps,
@@ -189,6 +192,9 @@ class LeRobotWriter(StorageBackend):
         Topics absent from ``topic_to_feature`` are silently dropped.
         ``FrameObservation`` dicts (containing JPEG bytes under ``"color"``)
         are decoded to PIL Images before being handed to LeRobot.
+        Joint-state and joint-command dicts contribute their ``"q"`` value.
+        Numeric features are converted to numpy arrays using their dtype from
+        the active LeRobot feature schema.
 
         Args:
             frame: Aligned frame dict (topic -> data, plus ``"timestamp"``).
@@ -200,10 +206,7 @@ class LeRobotWriter(StorageBackend):
         for topic, feature_name in self._topic_to_feature.items():
             value = frame.get(topic)
             if value is not None:
-                mapped[feature_name] = self._coerce_feature_value(
-                    feature_name,
-                    value
-                )
+                mapped[feature_name] = self._coerce_feature_value(feature_name, value)
         return mapped
 
     @staticmethod
@@ -229,17 +232,26 @@ class LeRobotWriter(StorageBackend):
         color_bytes: bytes = value["color"]
         return Image.open(io.BytesIO(color_bytes)).convert("RGB")
 
-    @staticmethod
-    def _coerce_feature_value(feature_name: str, value: Any) -> Any:
+    def _coerce_feature_value(self, feature_name: str, value: Any) -> Any:
+        """Convert a buffered value to the representation LeRobot expects.
+
+        Image payloads become PIL images. Joint payloads are reduced to their
+        position vector, and numeric features become arrays of the dtype
+        required by the active dataset schema.
+        """
         if isinstance(value, dict) and "color" in value:
             return LeRobotWriter._coerce_image(value)
 
         if isinstance(value, dict) and "q" in value:
             value = value["q"]
 
-        if feature_name == "action" or feature_name.startswith(
-            ("action.", "observation.state")
-        ):
-            return np.asarray(value, dtype=np.float32)
+        feature = self._features.get(feature_name)
+        if feature is not None:
+            try:
+                numeric_dtype = np.dtype(feature["dtype"])
+            except (KeyError, TypeError):
+                pass
+            else:
+                return np.asarray(value, dtype=numeric_dtype)
 
         return value
