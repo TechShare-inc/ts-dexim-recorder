@@ -6,7 +6,9 @@ import sys
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
+from lerobot.datasets.utils import validate_frame
 
 from dexim.recorder.metadata import EpisodeMetadata
 
@@ -42,6 +44,7 @@ def mock_lerobot_dataset():
     ds.save_episode = MagicMock()
     ds.finalize = MagicMock()
     ds.push_to_hub = MagicMock()
+    ds.features = {}
     return ds
 
 
@@ -167,28 +170,21 @@ class TestConstructorValidation:
         mock_cls.assert_called_once()
         mock_cls.create.assert_not_called()
 
-    def test_recreates_dataset_when_incomplete(
-        self, patch_lerobot_dataset, tmp_path
-    ) -> None:
-        _, mock_cls = patch_lerobot_dataset
+    def test_incomplete_dataset_raises(self, patch_lerobot_dataset, tmp_path) -> None:
         from dexim.recorder.backends.lerobot_writer import LeRobotWriter
 
         # Stub dataset with only info.json (no tasks.parquet, no data/)
         (tmp_path / "meta").mkdir()
-        (tmp_path / "meta" / "info.json").write_text("{}")
-
-        LeRobotWriter(
-            dataset_path=str(tmp_path),
-            repo_id="org/ds",
-            features=None,
-            topic_to_feature={"obs/arm/joint_state": "state"},
-        )
-
-        # Incomplete dir was deleted -> create() called, not the constructor
-        mock_cls.create.assert_called_once()
-        mock_cls.assert_not_called()
-        # Directory was removed
-        assert not tmp_path.exists()
+        sentinel = tmp_path / "meta" / "info.json"
+        sentinel.write_text("{}")
+        with pytest.raises(RuntimeError, match="Incomplete LeRobot dataset"):
+            LeRobotWriter(
+                dataset_path=str(tmp_path),
+                repo_id="org/ds",
+                features=None,
+                topic_to_feature={"obs/arm/joint_state": "state"},
+            )
+        assert sentinel.read_text() == "{}"
 
 
 # ---------------------------------------------------------------------------
@@ -203,11 +199,41 @@ class TestMapFrame:
         return LeRobotWriter(
             dataset_path="/tmp/ds",
             repo_id="org/ds",
-            features=None,
+            features={
+                "observation.state": {
+                    "dtype": "float32",
+                    "shape": [6],
+                    "names": None,
+                },
+                "action": {"dtype": "float32", "shape": [6], "names": None},
+            },
             topic_to_feature={
                 "obs/arm/joint_state": "observation.state",
                 "action/arm/joint_cmd": "action",
             },
+        )
+
+    def test_joint_payload_extracts_q(self, patch_lerobot_dataset) -> None:
+        writer = self._make_writer(patch_lerobot_dataset)
+        frame = {
+            "obs/arm/joint_state": {
+                "q": [1.0] * 6,
+                "qd": [0.1] * 6,
+                "tau": [0.2] * 6,
+                "stamp": 1.0,
+            },
+            "action/arm/joint_cmd": {
+                "q": [0.5] * 6,
+            },
+        }
+
+        result = writer._map_frame(frame)
+
+        np.testing.assert_array_equal(
+            result["observation.state"], np.asarray([1.0] * 6, dtype=np.float32)
+        )
+        np.testing.assert_array_equal(
+            result["action"], np.asarray([0.5] * 6, dtype=np.float32)
         )
 
     def test_mapped_topics_translated(self, patch_lerobot_dataset) -> None:
@@ -220,6 +246,44 @@ class TestMapFrame:
         result = writer._map_frame(frame)
         assert "observation.state" in result
         assert "action" in result
+
+    @pytest.mark.parametrize(
+        ("topic", "feature_name", "dtype"),
+        [
+            ("action/nova_left/joint_cmd", "action.nova_left", "float32"),
+            (
+                "observation/nova_left/joint_state",
+                "observation.state.nova_left",
+                "float64",
+            ),
+            ("observation/nova_left/joint_state", "custom.joints", "float32"),
+        ],
+    )
+    def test_numeric_joint_feature_follows_schema(
+        self,
+        patch_lerobot_dataset,
+        topic: str,
+        feature_name: str,
+        dtype: str,
+    ) -> None:
+        from dexim.recorder.backends.lerobot_writer import LeRobotWriter
+
+        features = {feature_name: {"dtype": dtype, "shape": [6], "names": None}}
+        writer = LeRobotWriter(
+            dataset_path="/tmp/ds",
+            repo_id="org/ds",
+            features=features,
+            topic_to_feature={topic: feature_name},
+        )
+
+        result = writer._map_frame({topic: {"q": [0.5] * 6}})
+
+        expected = np.asarray([0.5] * 6, dtype=dtype)
+        np.testing.assert_array_equal(result[feature_name], expected)
+        validate_frame(
+            {feature_name: result[feature_name], "task": "test"},
+            {feature_name: {**features[feature_name], "shape": (6,)}},
+        )
 
     def test_unmapped_topics_dropped(self, patch_lerobot_dataset) -> None:
         writer = self._make_writer(patch_lerobot_dataset)
@@ -256,7 +320,13 @@ class TestWriteEpisode:
         return LeRobotWriter(
             dataset_path="/tmp/ds",
             repo_id="org/ds",
-            features=None,
+            features={
+                "observation.state": {
+                    "dtype": "float32",
+                    "shape": [6],
+                    "names": None,
+                }
+            },
             topic_to_feature={"obs/arm/joint_state": "observation.state"},
         )
 

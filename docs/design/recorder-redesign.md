@@ -275,6 +275,13 @@ topic_to_feature:
   action/inspire_right/joint_cmd: action.inspire_right_joint
 ```
 
+Joint-state and joint-command payloads use their `q` vector. Numeric values are
+converted to numpy arrays using the dtype declared by the mapped feature's
+schema; image payloads are decoded from their `color` bytes. If `dataset_path`
+exists but does not contain a complete LeRobot dataset, initialization fails
+without deleting the directory so an operator can move or recover it
+explicitly.
+
 ### 6.2 HDF5 Writer (Fallback)
 
 Retained for:

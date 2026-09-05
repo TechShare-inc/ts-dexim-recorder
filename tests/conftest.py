@@ -8,6 +8,7 @@ Provides:
 from __future__ import annotations
 
 import logging
+from contextlib import suppress
 
 import pytest
 from loguru import logger
@@ -23,4 +24,7 @@ def propagate_loguru(caplog):
     )
     caplog.set_level(logging.DEBUG)
     yield
-    logger.remove(handler_id)
+    # CLI callbacks intentionally replace all Loguru handlers. In that case,
+    # this fixture's handler has already been removed.
+    with suppress(ValueError):
+        logger.remove(handler_id)
