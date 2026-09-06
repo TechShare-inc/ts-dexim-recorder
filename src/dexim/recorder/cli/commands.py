@@ -74,6 +74,25 @@ def _path_value(p: Path | None) -> str | None:
     help="Frame rate for LeRobot dataset.",
 )
 @click.option(
+    "--lerobot-vcodec",
+    default="libsvtav1",
+    show_default=True,
+    help="Video codec for LeRobot episode encoding.",
+)
+@click.option(
+    "--lerobot-parallel-encoding/--no-lerobot-parallel-encoding",
+    default=False,
+    show_default=True,
+    help="Encode LeRobot camera streams concurrently.",
+)
+@click.option(
+    "--lerobot-encoder-threads",
+    type=click.IntRange(min=1),
+    default=4,
+    show_default=True,
+    help="Maximum encoder threads per LeRobot camera stream.",
+)
+@click.option(
     "--node-id",
     default="recorder",
     show_default=True,
@@ -88,6 +107,9 @@ def run(
     endpoints: tuple[str, ...],
     default_task: str,
     fps: int,
+    lerobot_vcodec: str,
+    lerobot_parallel_encoding: bool,
+    lerobot_encoder_threads: int,
     node_id: str,
 ) -> None:
     """Start the data recorder node."""
@@ -117,6 +139,9 @@ def run(
             output_dir=output_dir,
             default_task=default_task,
             fps=fps,
+            lerobot_vcodec=lerobot_vcodec,
+            lerobot_parallel_encoding=lerobot_parallel_encoding,
+            lerobot_encoder_threads=lerobot_encoder_threads,
         )
 
     console.print(
@@ -327,6 +352,22 @@ def _config_field_options(func):
         default=None,
         help="Unique node identifier.",
     )(func)
+    func = click.option(
+        "--lerobot-vcodec",
+        default=None,
+        help="Video codec for LeRobot episode encoding.",
+    )(func)
+    func = click.option(
+        "--lerobot-parallel-encoding/--no-lerobot-parallel-encoding",
+        default=None,
+        help="Encode LeRobot camera streams concurrently.",
+    )(func)
+    func = click.option(
+        "--lerobot-encoder-threads",
+        type=click.IntRange(min=1),
+        default=None,
+        help="Maximum encoder threads per LeRobot camera stream.",
+    )(func)
     return func
 
 
@@ -344,6 +385,9 @@ def config_new(
     default_task: str | None,
     fps: int | None,
     node_id: str | None,
+    lerobot_vcodec: str | None,
+    lerobot_parallel_encoding: bool | None,
+    lerobot_encoder_threads: int | None,
 ) -> None:
     """Create a new named recorder configuration file."""
     console = get_console()
@@ -360,6 +404,12 @@ def config_new(
         data["fps"] = fps
     if node_id is not None:
         data["node_id"] = node_id
+    if lerobot_vcodec is not None:
+        data["lerobot_vcodec"] = lerobot_vcodec
+    if lerobot_parallel_encoding is not None:
+        data["lerobot_parallel_encoding"] = lerobot_parallel_encoding
+    if lerobot_encoder_threads is not None:
+        data["lerobot_encoder_threads"] = lerobot_encoder_threads
     path = create_config_yaml(config_name, data, _path_value(config_dir))
     console.print(f"[success]\u2713 Created config '{config_name}':[/] {path}")
 
@@ -378,6 +428,9 @@ def config_edit(
     default_task: str | None,
     fps: int | None,
     node_id: str | None,
+    lerobot_vcodec: str | None,
+    lerobot_parallel_encoding: bool | None,
+    lerobot_encoder_threads: int | None,
 ) -> None:
     """Update fields in an existing named recorder configuration file."""
     console = get_console()
@@ -394,6 +447,12 @@ def config_edit(
         updates["fps"] = fps
     if node_id is not None:
         updates["node_id"] = node_id
+    if lerobot_vcodec is not None:
+        updates["lerobot_vcodec"] = lerobot_vcodec
+    if lerobot_parallel_encoding is not None:
+        updates["lerobot_parallel_encoding"] = lerobot_parallel_encoding
+    if lerobot_encoder_threads is not None:
+        updates["lerobot_encoder_threads"] = lerobot_encoder_threads
     if not updates:
         raise click.UsageError("Specify at least one field to change.")
     path = edit_config_yaml(config_name, updates, _path_value(config_dir))

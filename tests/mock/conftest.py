@@ -40,6 +40,9 @@ def patch_managed_node():
         self.is_recording = False
         self.is_publishing = True
         self._teleop_active = False
+        self._countdown_active = False
+        self._countdown_duration = 0.0
+        self._countdown_end_ts = 0.0
         self.running = False
         self._last_heartbeat_ts = 0.0
         self._ctx = MagicMock()
@@ -65,7 +68,12 @@ def patch_managed_node():
 @pytest.fixture()
 def mock_writer_queue():
     """Return a MagicMock that records calls to submit() and shutdown()."""
-    return MagicMock(spec=["submit", "shutdown"])
+    writer_queue = MagicMock(
+        spec=["submit", "shutdown", "pending_count", "wait_until_idle"]
+    )
+    writer_queue.pending_count.return_value = 0
+    writer_queue.wait_until_idle.return_value = True
+    return writer_queue
 
 
 @pytest.fixture()
