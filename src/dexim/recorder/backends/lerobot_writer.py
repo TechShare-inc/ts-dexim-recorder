@@ -37,6 +37,9 @@ class LeRobotWriter(StorageBackend):
         fps: Dataset frame rate.
         push_to_hub: Push dataset to HuggingFace Hub on ``close()``.
         robot_type: Robot type string embedded in dataset metadata.
+        vcodec: Video codec passed to LeRobot/FFmpeg.
+        parallel_encoding: Encode camera streams concurrently at episode save.
+        encoder_threads: Maximum encoder threads per camera stream.
 
     Raises:
         ImportError: When ``lerobot`` is not installed.
@@ -53,6 +56,9 @@ class LeRobotWriter(StorageBackend):
         fps: int = 30,
         push_to_hub: bool = False,
         robot_type: str = "dexim-dualarm",
+        vcodec: str = "libsvtav1",
+        parallel_encoding: bool = False,
+        encoder_threads: int = 4,
     ) -> None:
         try:
             from lerobot.datasets.lerobot_dataset import LeRobotDataset
@@ -68,9 +74,14 @@ class LeRobotWriter(StorageBackend):
             raise ValueError(
                 "topic_to_feature must map at least one topic to a LeRobot feature name"
             )
+        if not vcodec.strip():
+            raise ValueError("vcodec must be non-empty")
+        if encoder_threads <= 0:
+            raise ValueError("encoder_threads must be positive")
 
         self._topic_to_feature = topic_to_feature
         self._push_to_hub = push_to_hub
+        self._parallel_encoding = parallel_encoding
         self._lock = threading.Lock()
 
         # Normalise list shapes -> tuples for the LeRobot API
@@ -93,6 +104,8 @@ class LeRobotWriter(StorageBackend):
                 repo_id=repo_id,
                 root=dataset_path,
                 tolerance_s=1e-4,
+                vcodec=vcodec,
+                encoder_threads=encoder_threads,
             )
             self._features: dict[str, Any] = dict(self._dataset.features)
             logger.info(
@@ -109,6 +122,8 @@ class LeRobotWriter(StorageBackend):
                 features=processed_features,
                 tolerance_s=1e-4,
                 use_videos=True,
+                vcodec=vcodec,
+                encoder_threads=encoder_threads,
             )
             logger.info(
                 f"LeRobotWriter: dataset created at {dataset_path!r} "
@@ -139,7 +154,9 @@ class LeRobotWriter(StorageBackend):
                     if mapped:
                         mapped["task"] = metadata.task_id
                         self._dataset.add_frame(mapped)
-                self._dataset.save_episode()
+                self._dataset.save_episode(
+                    parallel_encoding=self._parallel_encoding,
+                )
                 logger.info(
                     f"Episode {metadata.episode_index} saved to LeRobotDataset "
                     f"({len(frames)} frames)"
