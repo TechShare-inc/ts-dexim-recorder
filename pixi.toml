@@ -3,7 +3,7 @@ authors = ["haoyan.li <haoyan.li@techshare.co.jp>"]
 channels = ["conda-forge"]
 name = "ts-dexim-recorder"
 platforms = ["win-64"]
-version = "0.1.0"
+version = "1.0.0"
 
 [tasks]
 test = "pytest tests/ -m 'not hardware'"
@@ -16,7 +16,7 @@ hdf5 = ">=1.12"
 [pypi-dependencies]
 dexim-recorder = { path = ".", editable = true }
 # Gate 2 accepted baseline: ts-dexim-core/dev.
-dexim-core = { git = "https://github.com/TechShare-inc/ts-dexim-core.git", rev = "7bcbec6b8ab8d61e411e87843a0bf6e84fe7ad88" }
+dexim-core = { git = "https://github.com/TechShare-inc/ts-dexim-core.git", rev = "2c5f6424e6e99bbc24894c3e7198a04d97c491ad" }
 # Gate 2 accepted baseline: ts-dexim-cli-common/dev at
 # f427f441b8258c4430afaa21b011ed78cc22e14e (sibling checkout for development).
 dexim-cli-common = { path = "../dexim-cli-common", editable = true }
