@@ -1,6 +1,6 @@
 [project]
 name = "dexim-recorder"
-version = "0.1.0"
+version = "1.0.0"
 description = "DexImitate data recorder — multi-stream episode collection in HDF5 and LeRobot formats"
 readme = "README.md"
 authors = [
@@ -14,8 +14,8 @@ dependencies = [
     "lerobot==0.4.4",
     "packaging>=24.2,<26",
     "setuptools>=71.0,<81",
-    "dexim-core>=0.1.0",
-    "dexim-cli-common>=0.1.0",
+    "dexim-core>=1.0,<2.0",
+    "dexim-cli-common>=1.0,<2.0",
     "click>=8.0",
     "rich-click>=1.8",
 ]

@@ -40,7 +40,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/vcomp14-14.44.35208-h818238b_34.conda
       - pypi: .
       - pypi: ../dexim-cli-common
-      - pypi: git+https://github.com/TechShare-inc/ts-dexim-core.git?rev=7bcbec6b8ab8d61e411e87843a0bf6e84fe7ad88#7bcbec6b8ab8d61e411e87843a0bf6e84fe7ad88
+      - pypi: git+https://github.com/TechShare-inc/ts-dexim-core.git?rev=2c5f6424e6e99bbc24894c3e7198a04d97c491ad#2c5f6424e6e99bbc24894c3e7198a04d97c491ad
       - pypi: https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/05/2c/ffc08c54c05cdce6fbed2aeebc46348dbe180c6d2c541c7af7ba0aa5f5f8/Farama_Notifications-0.0.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/07/86/f1f61b7a0701f9d1299e5293d083318019f91021a4d449f94d59dbe024e4/pycollada-0.9.3-py3-none-any.whl
@@ -575,8 +575,8 @@ packages:
   - lerobot==0.4.4
   - packaging>=24.2,<26
   - setuptools>=71.0,<81
-  - dexim-core>=0.1.0
-  - dexim-cli-common>=0.1.0
+  - dexim-core>=1.0,<2.0
+  - dexim-cli-common>=1.0,<2.0
   - click>=8.0
   - rich-click>=1.8
   - pytest>=7.0.0 ; extra == 'dev'
@@ -592,9 +592,9 @@ packages:
   - readchar>=4.0
   - loguru>=0.7
   requires_python: '>=3.10'
-- pypi: git+https://github.com/TechShare-inc/ts-dexim-core.git?rev=7bcbec6b8ab8d61e411e87843a0bf6e84fe7ad88#7bcbec6b8ab8d61e411e87843a0bf6e84fe7ad88
+- pypi: git+https://github.com/TechShare-inc/ts-dexim-core.git?rev=2c5f6424e6e99bbc24894c3e7198a04d97c491ad#2c5f6424e6e99bbc24894c3e7198a04d97c491ad
   name: dexim-core
-  version: 0.1.0
+  version: 1.0.0
   requires_dist:
   - loguru>=0.7.0
   - msgpack>=1.0.0
