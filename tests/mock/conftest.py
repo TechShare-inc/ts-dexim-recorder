@@ -14,49 +14,28 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
+from dexim.core.nodes import ManagedNode
 
 # ---------------------------------------------------------------------------
-# ManagedNode patch
+# ManagedNode I/O patch
 # ---------------------------------------------------------------------------
 
 
 @pytest.fixture()
 def patch_managed_node():
-    """Patch ``ManagedNode.__init__`` to skip ZMQ context and socket setup.
+    """Patch only ``ManagedNode`` ZMQ setup, preserving its runtime state.
 
-    Provides the minimal set of instance attributes that ``DataRecorderNode``
-    and ``ManagedNode`` expect after construction.
+    Keeping the real base initializer prevents this fixture from drifting when
+    ManagedNode adds lifecycle state.
     """
 
-    def _fake_managed_init(
-        self,
-        node_id: str,
-        control_endpoint: str | None = None,
-        status_endpoint: str | None = None,
-        heartbeat_interval: float = 1.0,
-    ) -> None:
-        self.node_id = node_id
-        self.heartbeat_interval = float(heartbeat_interval)
-        self.is_recording = False
-        self.is_publishing = True
-        self._teleop_active = False
-        self._countdown_active = False
-        self._countdown_duration = 0.0
-        self._countdown_end_ts = 0.0
-        self.running = False
-        self._last_heartbeat_ts = 0.0
+    def _fake_initialize_zmq(self: ManagedNode) -> None:
         self._ctx = MagicMock()
         self._sub_control = MagicMock()
         self._push_status = MagicMock()
         self._poller = MagicMock()
-        self._control_endpoint = control_endpoint or "tcp://localhost:5557"
-        self._status_endpoint = status_endpoint or "tcp://localhost:5558"
 
-    with patch(
-        "dexim.core.nodes.managed.ManagedNode.__init__",
-        autospec=True,
-        side_effect=_fake_managed_init,
-    ):
+    with patch.object(ManagedNode, "_initialize_zmq", _fake_initialize_zmq):
         yield
 
 
