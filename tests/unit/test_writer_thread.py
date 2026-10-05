@@ -79,6 +79,23 @@ class TestSubmitAndProcess:
             continuous_topics=["topicA"],
         )
 
+    def test_raw_backend_skips_alignment(self) -> None:
+        backend = MagicMock(spec=["write_episode", "close", "requires_alignment"])
+        backend.requires_alignment = False
+        done = threading.Event()
+        backend.write_episode.side_effect = lambda *args, **kwargs: done.set()
+        buffers = _make_buffers()
+        metadata = _make_metadata()
+
+        with patch("dexim.recorder.writer_thread.align_episode_data") as mock_align:
+            q = EpisodeWriterQueue(backend=backend)
+            q.submit(buffers=buffers, metadata=metadata)
+            assert done.wait(timeout=5.0)
+            q.shutdown(timeout=5.0)
+
+        mock_align.assert_not_called()
+        backend.write_episode.assert_called_once_with(buffers, metadata)
+
 
 # ---------------------------------------------------------------------------
 # FIFO ordering

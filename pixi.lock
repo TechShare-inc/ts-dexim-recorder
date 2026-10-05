@@ -572,6 +572,7 @@ packages:
   - numpy>=2.2.0
   - loguru>=0.7.0
   - h5py>=3.0.0
+  - msgpack>=1.0.0
   - lerobot==0.4.4
   - packaging>=24.2,<26
   - setuptools>=71.0,<81

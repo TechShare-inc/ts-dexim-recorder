@@ -10,7 +10,7 @@ __version__ = "0.1.0"
 import rich_click as click
 from dexim.cli.common import configure_logging, print_banner, setup_error_handling
 
-from .commands import config_group, run, status
+from .commands import config_group, convert_raw, run, status
 
 click.rich_click.USE_RICH_MARKUP = True
 click.rich_click.STYLE_COMMANDS_TABLE_COLUMN_WIDTH_RATIO = (1, 3)
@@ -35,6 +35,7 @@ def recorder_group(log_level: str) -> None:
 recorder_group.add_command(run)
 recorder_group.add_command(status)
 recorder_group.add_command(config_group, name="config")
+recorder_group.add_command(convert_raw)
 
 
 def standalone_app() -> None:

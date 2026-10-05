@@ -29,7 +29,8 @@ class RecorderNodeConfig:
     Attributes:
         node_id: Unique node identifier.
         data_endpoints: ZMQ endpoints to subscribe to (non-empty list).
-        storage_format: Storage backend -- ``"hdf5"`` or ``"lerobot"``.
+        storage_format: Storage backend -- ``"hdf5"``, ``"raw_hdf5"``, or
+            ``"lerobot"``.
         output_dir: Directory for HDF5 episode files or base path for the
             LeRobot dataset.
         default_task: Fallback task name used when no SET_TASK command has been
@@ -88,7 +89,7 @@ class RecorderNodeConfig:
         """
         if not self.data_endpoints:
             raise ValueError("data_endpoints must be a non-empty list")
-        allowed_formats = {"hdf5", "lerobot"}
+        allowed_formats = {"hdf5", "raw_hdf5", "lerobot"}
         if self.storage_format not in allowed_formats:
             raise ValueError(
                 f"storage_format must be one of {allowed_formats}, "

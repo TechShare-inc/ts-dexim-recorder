@@ -55,6 +55,13 @@ class TestRecorderNodeConfigValidation:
         )
         assert cfg.storage_format == "lerobot"
 
+    def test_raw_hdf5_format_valid(self) -> None:
+        cfg = RecorderNodeConfig(
+            data_endpoints=["tcp://localhost:5600"],
+            storage_format="raw_hdf5",
+        )
+        assert cfg.storage_format == "raw_hdf5"
+
     def test_multiple_endpoints_accepted(self) -> None:
         cfg = RecorderNodeConfig(
             data_endpoints=[

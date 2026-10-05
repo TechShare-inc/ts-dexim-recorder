@@ -36,6 +36,7 @@ from loguru import logger
 
 from dexim.recorder.backends.base import StorageBackend
 from dexim.recorder.backends.hdf5_writer import HDF5Writer
+from dexim.recorder.backends.raw_hdf5_writer import RawHDF5Writer
 from dexim.recorder.config import RecorderNodeConfig
 from dexim.recorder.metadata import EpisodeMetadata, TaskInfo
 from dexim.recorder.writer_thread import EpisodeWriterQueue
@@ -60,6 +61,15 @@ def _build_backend(config: RecorderNodeConfig) -> StorageBackend:
             output_dir=config.output_dir,
             topic_dtypes=config.topic_dtypes or None,
         )
+    if config.storage_format == "raw_hdf5":
+        return RawHDF5Writer(
+            output_dir=config.output_dir,
+            topic_to_feature=config.topic_to_feature,
+            features=config.features,
+            fps=config.fps,
+            master_clock_topic=config.master_clock_topic,
+            continuous_topics=config.continuous_topics,
+        )
     if config.storage_format == "lerobot":
         from dexim.recorder.backends.lerobot_writer import LeRobotWriter
 
@@ -76,7 +86,7 @@ def _build_backend(config: RecorderNodeConfig) -> StorageBackend:
         )
     raise ValueError(
         f"Unknown storage_format {config.storage_format!r}. "
-        "Supported: 'hdf5', 'lerobot'."
+        "Supported: 'hdf5', 'raw_hdf5', 'lerobot'."
     )
 
 
@@ -116,7 +126,7 @@ class DataRecorderNode(ManagedNode):
         )
 
         # Episode state.
-        self._episode_counter: int = 0
+        self._episode_counter: int = getattr(self._backend, "next_episode_index", 0)
         self._buffers: dict[str, list[tuple[float, Any]]] = defaultdict(list)
         self._buffer_lock = threading.Lock()
 

@@ -60,3 +60,39 @@ dexim.recorder/
     hdf5_writer.py  HDF5Writer
     lerobot_writer.py  LeRobotWriter
 ```
+# Raw HDF5 capture
+
+Use `raw_hdf5` when consecutive episodes must be captured without waiting for
+LeRobot video encoding. The recorder stores each topic's original timestamps
+and payloads without temporal alignment, while embedding the configured
+LeRobot `features` and `topic_to_feature` mappings in every file.
+
+In an existing LeRobot recorder YAML, change the storage settings while
+keeping the same feature schema and topic mapping:
+
+```yaml
+storage_format: raw_hdf5
+output_dir: output/raw/my_session
+fps: 30
+master_clock_topic: observation/realsense_front/video_frame
+
+# Keep the same topic_to_feature and features sections used by LeRobot.
+```
+
+This creates atomic, non-overwriting files such as:
+
+```text
+output/raw/my_session/episode_000000.raw.h5
+output/raw/my_session/episode_000001.raw.h5
+```
+
+After data collection finishes, convert the complete session offline:
+
+```powershell
+dexim recorder convert-raw `
+  --input-dir output/raw/my_session `
+  --output-dir output/lerobot/my_session `
+  --repo-id local/my-session
+```
+
+The source Raw HDF5 files are retained after conversion.

@@ -43,7 +43,7 @@ def _path_value(p: Path | None) -> str | None:
 @click.option(
     "--format",
     "storage_format",
-    type=click.Choice(["hdf5", "lerobot"]),
+    type=click.Choice(["hdf5", "raw_hdf5", "lerobot"]),
     default="hdf5",
     show_default=True,
     help="Storage backend format.",
@@ -180,7 +180,7 @@ def run(
 @click.option(
     "--format",
     "storage_format",
-    type=click.Choice(["hdf5", "lerobot"]),
+    type=click.Choice(["hdf5", "raw_hdf5", "lerobot"]),
     default="hdf5",
     show_default=True,
     help="Storage format to inspect.",
@@ -198,6 +198,8 @@ def status(output_dir: str, storage_format: str) -> None:
 
     if storage_format == "hdf5":
         episode_files = sorted(out_path.glob("episode_*.h5"))
+    elif storage_format == "raw_hdf5":
+        episode_files = sorted(out_path.glob("episode_*.raw.h5"))
     else:
         episode_files = sorted(out_path.glob("**/*.parquet"))
 
@@ -220,6 +222,69 @@ def status(output_dir: str, storage_format: str) -> None:
         output_dir=str(out_path.resolve()),
         storage_format=storage_format,
         console=console,
+    )
+
+
+# -- convert-raw ---------------------------------------------------------------
+
+
+@click.command(name="convert-raw")
+@click.option(
+    "--input-dir",
+    required=True,
+    type=click.Path(path_type=Path, file_okay=False),
+    help="Directory containing episode_*.raw.h5 files.",
+)
+@click.option(
+    "--output-dir",
+    required=True,
+    type=click.Path(path_type=Path, file_okay=False),
+    help="Destination LeRobot dataset directory.",
+)
+@click.option("--repo-id", required=True, help="LeRobot/HuggingFace repository ID.")
+@click.option(
+    "--vcodec",
+    default="libsvtav1",
+    show_default=True,
+    help="Video codec used by LeRobot.",
+)
+@click.option(
+    "--parallel-encoding/--no-parallel-encoding",
+    default=False,
+    show_default=True,
+    help="Encode LeRobot camera streams concurrently.",
+)
+@click.option(
+    "--encoder-threads",
+    type=click.IntRange(min=1),
+    default=4,
+    show_default=True,
+    help="Maximum encoder threads per camera stream.",
+)
+@handle_cli_error
+def convert_raw(
+    input_dir: Path,
+    output_dir: Path,
+    repo_id: str,
+    vcodec: str,
+    parallel_encoding: bool,
+    encoder_threads: int,
+) -> None:
+    """Convert a completed raw HDF5 session to LeRobot format."""
+    from dexim.recorder.raw_conversion import convert_raw_dataset
+
+    console = get_console()
+    console.print(f"[info]Converting raw episodes from:[/] {input_dir}")
+    converted = convert_raw_dataset(
+        input_dir=str(input_dir),
+        dataset_path=str(output_dir),
+        repo_id=repo_id,
+        vcodec=vcodec,
+        parallel_encoding=parallel_encoding,
+        encoder_threads=encoder_threads,
+    )
+    console.print(
+        f"[success]\u2713 Converted {converted} episode(s) to:[/] {output_dir}"
     )
 
 
@@ -320,7 +385,7 @@ def _config_field_options(func):
     func = click.option(
         "--format",
         "storage_format",
-        type=click.Choice(["hdf5", "lerobot"]),
+        type=click.Choice(["hdf5", "raw_hdf5", "lerobot"]),
         default=None,
         help="Storage backend format.",
     )(func)

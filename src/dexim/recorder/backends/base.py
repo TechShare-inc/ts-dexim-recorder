@@ -19,6 +19,8 @@ class StorageBackend(abc.ABC):
     safety net in case the caller pattern ever changes.
     """
 
+    requires_alignment: bool = True
+
     @abc.abstractmethod
     def write_episode(
         self,

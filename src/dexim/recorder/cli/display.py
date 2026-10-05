@@ -67,7 +67,7 @@ def render_output_status(
         total_size_mb: Total size of episode files in megabytes.
         last_modified: Human-readable timestamp of the last modified episode.
         output_dir: Path to the output directory.
-        storage_format: Storage format (hdf5/lerobot).
+        storage_format: Storage format (hdf5/raw_hdf5/lerobot).
         console: Rich Console to print to.
     """
     console.print(Rule("Recorder Output Status", style="brand.dim"))

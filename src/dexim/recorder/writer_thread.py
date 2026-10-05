@@ -179,14 +179,22 @@ class EpisodeWriterQueue:
             logger.info(
                 f"Writing episode {metadata.episode_index} ({len(buffers)} topics)..."
             )
-            frames = align_episode_data(
-                buffers,
-                master_clock_topic=self._master_clock_topic,
-                continuous_topics=self._continuous_topics,
-            )
-            self._backend.write_episode(frames, metadata)
+            requires_alignment = getattr(self._backend, "requires_alignment", True)
+            if requires_alignment:
+                episode_data = align_episode_data(
+                    buffers,
+                    master_clock_topic=self._master_clock_topic,
+                    continuous_topics=self._continuous_topics,
+                )
+                frame_count = len(episode_data)
+            else:
+                episode_data = buffers
+                frame_count = sum(len(samples) for samples in buffers.values())
+            self._backend.write_episode(episode_data, metadata)
             logger.success(
-                f"Episode {metadata.episode_index} written ({len(frames)} frames)"
+                f"Episode {metadata.episode_index} written "
+                f"({frame_count} "
+                f"{'frames' if requires_alignment else 'raw samples'})"
             )
         except Exception as exc:
             logger.error(
