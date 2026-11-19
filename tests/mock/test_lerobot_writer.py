@@ -147,6 +147,26 @@ class TestConstructorValidation:
         mock_cls.create.assert_called_once()
         mock_cls.assert_not_called()
 
+    def test_encoding_configuration_is_forwarded(
+        self, patch_lerobot_dataset, tmp_path
+    ) -> None:
+        _, mock_cls = patch_lerobot_dataset
+        from dexim.recorder.backends.lerobot_writer import LeRobotWriter
+
+        LeRobotWriter(
+            dataset_path=str(tmp_path / "new_ds"),
+            repo_id="org/ds",
+            features=None,
+            topic_to_feature={"obs/arm/joint_state": "state"},
+            vcodec="h264",
+            parallel_encoding=True,
+            encoder_threads=2,
+        )
+
+        call_kwargs = mock_cls.create.call_args.kwargs
+        assert call_kwargs["vcodec"] == "h264"
+        assert call_kwargs["encoder_threads"] == 2
+
     def test_loads_dataset_when_path_exists(
         self, patch_lerobot_dataset, tmp_path
     ) -> None:
@@ -345,7 +365,23 @@ class TestWriteEpisode:
 
         writer.write_episode(_make_frames(3), _make_metadata())
 
-        mock_ds.save_episode.assert_called_once_with()
+        mock_ds.save_episode.assert_called_once_with(parallel_encoding=False)
+
+    def test_parallel_encoding_is_explicit_opt_in(self, patch_lerobot_dataset) -> None:
+        mock_ds, _ = patch_lerobot_dataset
+        from dexim.recorder.backends.lerobot_writer import LeRobotWriter
+
+        writer = LeRobotWriter(
+            dataset_path="/tmp/ds",
+            repo_id="org/ds",
+            features=None,
+            topic_to_feature={"obs/arm/joint_state": "observation.state"},
+            parallel_encoding=True,
+        )
+
+        writer.write_episode(_make_frames(1), _make_metadata())
+
+        mock_ds.save_episode.assert_called_once_with(parallel_encoding=True)
 
     def test_empty_frames_skipped(self, patch_lerobot_dataset) -> None:
         mock_ds, _ = patch_lerobot_dataset

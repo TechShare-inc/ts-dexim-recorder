@@ -60,6 +60,8 @@ class EpisodeWriterQueue:
             tuple[dict[str, list[tuple[float, Any]]], EpisodeMetadata]
             | _ShutdownSentinel
         ] = queue.Queue()
+        self._state_changed = threading.Condition()
+        self._pending_jobs = 0
         self._thread = threading.Thread(
             target=self._worker,
             name="episode-writer",
@@ -82,12 +84,34 @@ class EpisodeWriterQueue:
             buffers: Deep copy of the episode data buffers (topic -> samples).
             metadata: Episode metadata snapshot.
         """
+        with self._state_changed:
+            self._pending_jobs += 1
         self._queue.put((buffers, metadata))
         logger.debug(f"Episode {metadata.episode_index} queued for writing")
 
     def qsize(self) -> int:
         """Return the number of episodes currently waiting to be written."""
         return self._queue.qsize()
+
+    def pending_count(self) -> int:
+        """Return queued plus actively processed episode jobs."""
+        with self._state_changed:
+            return self._pending_jobs
+
+    def wait_until_idle(self, timeout: float | None = None) -> bool:
+        """Wait until every submitted episode job has finished.
+
+        Args:
+            timeout: Maximum seconds to wait, or ``None`` to wait indefinitely.
+
+        Returns:
+            ``True`` when idle, or ``False`` when the timeout expires.
+        """
+        with self._state_changed:
+            return self._state_changed.wait_for(
+                lambda: self._pending_jobs == 0,
+                timeout=timeout,
+            )
 
     def shutdown(self, timeout: float = 120.0) -> None:
         """Drain the queue, process remaining episodes, then stop the thread.
@@ -106,14 +130,16 @@ class EpisodeWriterQueue:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 logger.warning(
-                    "EpisodeWriterQueue.shutdown: timed out -- worker thread still alive"
+                    "EpisodeWriterQueue.shutdown: timed out -- "
+                    "worker thread still alive"
                 )
                 break
             try:
                 self._thread.join(timeout=min(remaining, 2.0))
             except KeyboardInterrupt:
                 logger.warning(
-                    "EpisodeWriterQueue.shutdown: Ctrl+C ignored -- encoding still running, please wait"
+                    "EpisodeWriterQueue.shutdown: Ctrl+C ignored -- "
+                    "encoding still running, please wait"
                 )
         else:
             logger.debug("EpisodeWriterQueue shut down cleanly")
@@ -130,7 +156,13 @@ class EpisodeWriterQueue:
                 logger.debug("EpisodeWriterQueue worker: shutdown sentinel received")
                 break
             buffers, metadata = item
-            self._write_one(buffers, metadata)
+            try:
+                self._write_one(buffers, metadata)
+            finally:
+                with self._state_changed:
+                    self._pending_jobs -= 1
+                    if self._pending_jobs == 0:
+                        self._state_changed.notify_all()
 
     def _write_one(
         self,

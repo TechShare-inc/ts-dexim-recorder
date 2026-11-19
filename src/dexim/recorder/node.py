@@ -30,7 +30,7 @@ from collections import defaultdict
 from typing import Any
 
 import zmq
-from dexim.core.messages import StatusInfo, unpack_data_message
+from dexim.core.messages import STATUS_HEALTHY, StatusInfo, unpack_data_message
 from dexim.core.nodes.managed import ManagedNode
 from loguru import logger
 
@@ -70,6 +70,9 @@ def _build_backend(config: RecorderNodeConfig) -> StorageBackend:
             topic_to_feature=config.topic_to_feature,
             fps=config.fps,
             push_to_hub=config.push_to_hub,
+            vcodec=config.lerobot_vcodec,
+            parallel_encoding=config.lerobot_parallel_encoding,
+            encoder_threads=config.lerobot_encoder_threads,
         )
     raise ValueError(
         f"Unknown storage_format {config.storage_format!r}. "
@@ -230,8 +233,24 @@ class DataRecorderNode(ManagedNode):
         logger.info(f"{self.node_id}: paused")
 
     def on_stop(self) -> None:
-        """Safe-stop (no additional action needed for a recorder)."""
-        logger.info(f"{self.node_id}: stopped")
+        """Wait for episode persistence, then enter stopped state.
+
+        The recorder process remains alive after STOP. SHUTDOWN is the command
+        that closes the backend and exits the process.
+        """
+        pending = self._writer_queue.pending_count()
+        if pending:
+            logger.info(
+                f"{self.node_id}: STOP waiting for {pending} episode write job(s)"
+            )
+            while not self._writer_queue.wait_until_idle(
+                timeout=self.heartbeat_interval
+            ):
+                self.report_status(STATUS_HEALTHY)
+        logger.info(
+            f"{self.node_id}: stopped -- episode writes complete; "
+            "process remains alive until SHUTDOWN"
+        )
 
     def on_start_recording(self) -> None:
         """Snapshot active task and clear buffers at the start of a recording window."""
@@ -340,7 +359,7 @@ class DataRecorderNode(ManagedNode):
         if hasattr(self, "_active_task"):
             info.active_task = self._active_task.task_id
         if hasattr(self, "_writer_queue"):
-            info.writer_queue_depth = self._writer_queue.qsize()
+            info.writer_queue_depth = self._writer_queue.pending_count()
         return info
 
     def get_buffer_stats(self) -> dict[str, int]:

@@ -7,12 +7,13 @@ threads.
 
 from __future__ import annotations
 
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from dexim.recorder.config import RecorderNodeConfig
-from dexim.recorder.node import DataRecorderNode
+from dexim.recorder.node import DataRecorderNode, _build_backend
 
 # ---------------------------------------------------------------------------
 # Shared config
@@ -70,6 +71,28 @@ class TestConstruction:
     def test_episode_counter_starts_at_zero(self, recorder_node):
         assert recorder_node._episode_counter == 0
 
+    def test_lerobot_encoding_config_reaches_backend(self) -> None:
+        config = RecorderNodeConfig(
+            data_endpoints=["tcp://localhost:5600"],
+            storage_format="lerobot",
+            lerobot_vcodec="h264",
+            lerobot_parallel_encoding=True,
+            lerobot_encoder_threads=2,
+        )
+
+        writer_cls = MagicMock()
+        fake_module = MagicMock(LeRobotWriter=writer_cls)
+        with patch.dict(
+            sys.modules,
+            {"dexim.recorder.backends.lerobot_writer": fake_module},
+        ):
+            _build_backend(config)
+
+        call_kwargs = writer_cls.call_args.kwargs
+        assert call_kwargs["vcodec"] == "h264"
+        assert call_kwargs["parallel_encoding"] is True
+        assert call_kwargs["encoder_threads"] == 2
+
 
 # ---------------------------------------------------------------------------
 # Lifecycle hooks
@@ -81,6 +104,30 @@ class TestOnStart:
         recorder_node._buffers["some/topic"].append((1.0, [1, 2, 3]))
         recorder_node.on_start()
         assert len(recorder_node._buffers) == 0
+
+
+class TestOnStop:
+    def test_waits_for_active_episode_write(
+        self, recorder_node, patch_writer_queue
+    ) -> None:
+        patch_writer_queue.pending_count.return_value = 1
+
+        recorder_node.on_stop()
+
+        patch_writer_queue.wait_until_idle.assert_called_once_with(
+            timeout=recorder_node.heartbeat_interval
+        )
+
+    def test_reports_heartbeat_while_writer_is_busy(
+        self, recorder_node, patch_writer_queue
+    ) -> None:
+        patch_writer_queue.pending_count.return_value = 1
+        patch_writer_queue.wait_until_idle.side_effect = [False, True]
+        recorder_node.report_status = MagicMock()
+
+        recorder_node.on_stop()
+
+        recorder_node.report_status.assert_called_once()
 
 
 class TestOnStartRecording:
@@ -222,3 +269,12 @@ class TestGetBufferStats:
 
     def test_empty_buffers_returns_empty_dict(self, recorder_node):
         assert recorder_node.get_buffer_stats() == {}
+
+    def test_status_counts_active_writer_job(
+        self, recorder_node, patch_writer_queue
+    ) -> None:
+        patch_writer_queue.pending_count.return_value = 1
+
+        info = recorder_node.get_status_info()
+
+        assert info.writer_queue_depth == 1

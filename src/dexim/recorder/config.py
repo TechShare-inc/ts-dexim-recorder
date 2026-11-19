@@ -51,6 +51,10 @@ class RecorderNodeConfig:
         lerobot_repo_id: HuggingFace repo ID (e.g. ``"org/dataset-name"``).
         push_to_hub: Push dataset to HuggingFace Hub on close.
         fps: Frame rate used in LeRobot dataset creation.
+        lerobot_vcodec: Video codec passed to LeRobot.
+        lerobot_parallel_encoding: Encode camera streams concurrently when
+            saving an episode. Disabled by default to avoid CPU oversubscription.
+        lerobot_encoder_threads: Maximum encoder threads per camera stream.
         control_endpoint: ZMQ control plane endpoint.
         status_endpoint: ZMQ status plane endpoint.
     """
@@ -69,6 +73,9 @@ class RecorderNodeConfig:
     lerobot_repo_id: str = ""
     push_to_hub: bool = False
     fps: int = 30
+    lerobot_vcodec: str = "libsvtav1"
+    lerobot_parallel_encoding: bool = False
+    lerobot_encoder_threads: int = 4
     control_endpoint: str = CTRL_PUB_ENDPOINT
     status_endpoint: str = STATUS_PULL_ENDPOINT
 
@@ -89,6 +96,13 @@ class RecorderNodeConfig:
             )
         if self.fps <= 0:
             raise ValueError(f"fps must be positive, got {self.fps}")
+        if not self.lerobot_vcodec.strip():
+            raise ValueError("lerobot_vcodec must be non-empty")
+        if self.lerobot_encoder_threads <= 0:
+            raise ValueError(
+                "lerobot_encoder_threads must be positive, "
+                f"got {self.lerobot_encoder_threads}"
+            )
 
 
 def load_config(config_path: str) -> RecorderNodeConfig:

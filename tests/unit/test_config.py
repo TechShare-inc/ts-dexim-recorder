@@ -74,6 +74,16 @@ class TestRecorderNodeConfigValidation:
         assert cfg.master_clock_topic is None
         assert cfg.continuous_topics == []
         assert cfg.topic_dtypes == {}
+        assert cfg.lerobot_vcodec == "libsvtav1"
+        assert cfg.lerobot_parallel_encoding is False
+        assert cfg.lerobot_encoder_threads == 4
+
+    def test_non_positive_encoder_threads_raises(self) -> None:
+        with pytest.raises(ValueError, match="lerobot_encoder_threads"):
+            RecorderNodeConfig(
+                data_endpoints=["tcp://localhost:5600"],
+                lerobot_encoder_threads=0,
+            )
 
 
 # ---------------------------------------------------------------------------

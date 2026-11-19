@@ -196,3 +196,29 @@ class TestQsize:
             assert q.qsize() <= 3
             unblock.set()
             q.shutdown(timeout=5.0)
+
+    def test_pending_count_includes_active_write(self) -> None:
+        backend = MagicMock(spec=["write_episode", "close"])
+        processing = threading.Event()
+        unblock = threading.Event()
+
+        def _slow_write(frames, metadata):
+            processing.set()
+            unblock.wait(timeout=5.0)
+
+        backend.write_episode.side_effect = _slow_write
+
+        with patch(
+            "dexim.recorder.writer_thread.align_episode_data",
+            return_value=[{"timestamp": 1.0}],
+        ):
+            q = EpisodeWriterQueue(backend=backend)
+            q.submit(buffers=_make_buffers(), metadata=_make_metadata())
+            assert processing.wait(timeout=5.0)
+            assert q.pending_count() == 1
+            assert not q.wait_until_idle(timeout=0.0)
+
+            unblock.set()
+            assert q.wait_until_idle(timeout=5.0)
+            assert q.pending_count() == 0
+            q.shutdown(timeout=5.0)

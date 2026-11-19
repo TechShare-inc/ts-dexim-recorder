@@ -60,6 +60,11 @@ class TestHelpOutput:
         assert "--config" in result.output
         assert "--endpoint" in result.output
         assert "--format" in result.output
+        assert "--lerobot-vcodec" in result.output
+        run_command = recorder_group.commands["run"]
+        parameter_names = {param.name for param in run_command.params}
+        assert "lerobot_parallel_encoding" in parameter_names
+        assert "lerobot_encoder_threads" in parameter_names
 
     def test_status_help(self) -> None:
         result = self.runner.invoke(recorder_group, ["status", "--help"])
